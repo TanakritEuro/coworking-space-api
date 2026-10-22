@@ -21,9 +21,12 @@ exports.protect = async (req, res, next) => {
         //Verify token
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-        console.log(decoded);
-
         req.user = await User.findById(decoded.id);
+
+        //Token is valid but the user no longer exists
+        if (!req.user) {
+            return res.status(401).json({ success: false, message: 'Not authorize to access this route' });
+        }
 
         next();
     } catch (err) {
