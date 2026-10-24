@@ -4,7 +4,9 @@
   "main": "server.js",
   "scripts": {
     "start": "node server",
-    "dev": "nodemon server"
+    "dev": "nodemon server",
+    "seed": "node scripts/seed.js",
+    "seed:undo": "node scripts/seed.js --undo"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
