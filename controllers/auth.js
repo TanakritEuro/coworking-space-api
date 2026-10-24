@@ -1,4 +1,6 @@
+const crypto = require('crypto');
 const User = require('../models/User');
+const sendEmail = require('../utils/sendEmail');
 
 //@desc     Register user
 //@route    POST /api/v1/auth/register
@@ -82,6 +84,95 @@ exports.logout = async (req, res, next) => {
         success: true,
         data: {}
     });
+};
+
+//@desc     Request a password reset link
+//@route    POST /api/v1/auth/forgotpassword
+//@access   Public
+exports.forgotPassword = async (req, res, next) => {
+    //Same answer whether or not the email is registered, so the API cannot be used to discover accounts
+    const genericResponse = { success: true, message: 'If that email is registered, a password reset link has been sent' };
+
+    try {
+        const { email } = req.body;
+
+        if (!email || typeof email !== 'string') {
+            return res.status(400).json({ success: false, message: 'Please provide an email' });
+        }
+
+        const user = await User.findOne({ email });
+
+        if (!user) {
+            return res.status(200).json(genericResponse);
+        }
+
+        //A new request replaces any earlier unused token
+        const resetToken = user.getResetPasswordToken();
+        await user.save({ validateBeforeSave: false });
+
+        const clientUrl = process.env.CLIENT_URL || `${req.protocol}://${req.get('host')}/api/v1/auth`;
+        const resetUrl = `${clientUrl}/resetpassword/${resetToken}`;
+
+        try {
+            await sendEmail({
+                email: user.email,
+                subject: 'Password reset request',
+                message: `You requested a password reset.\n\nUse this link within 15 minutes to set a new password:\n${resetUrl}\n\nThe link works only once. If you did not request this, you can ignore this email.`
+            });
+        } catch (err) {
+            console.log(err.stack);
+            //Do not leave a token nobody received
+            user.resetPasswordToken = undefined;
+            user.resetPasswordExpire = undefined;
+            await user.save({ validateBeforeSave: false });
+            return res.status(500).json({ success: false, message: 'Email could not be sent' });
+        }
+
+        res.status(200).json(genericResponse);
+    } catch (err) {
+        console.log(err.stack);
+        res.status(500).json({ success: false, message: 'Cannot process password reset request' });
+    }
+};
+
+//@desc     Set a new password with a reset token
+//@route    PUT /api/v1/auth/resetpassword/:resettoken
+//@access   Public
+exports.resetPassword = async (req, res, next) => {
+    try {
+        const { password } = req.body;
+
+        if (!password || typeof password !== 'string') {
+            return res.status(400).json({ success: false, message: 'Please provide a new password' });
+        }
+
+        //Compare by hash; an expired token never matches
+        const resetPasswordToken = crypto.createHash('sha256').update(String(req.params.resettoken)).digest('hex');
+
+        const user = await User.findOne({
+            resetPasswordToken,
+            resetPasswordExpire: { $gt: Date.now() }
+        });
+
+        if (!user) {
+            return res.status(400).json({ success: false, message: 'Invalid or expired reset token' });
+        }
+
+        //Setting the password triggers hashing; clearing the fields makes the token single-use
+        user.password = password;
+        user.resetPasswordToken = undefined;
+        user.resetPasswordExpire = undefined;
+        await user.save();
+
+        res.status(200).json({ success: true, message: 'Password has been reset. Please log in with the new password' });
+    } catch (err) {
+        //Validation errors (e.g. password shorter than 6) leave the token usable
+        if (err.name === 'ValidationError') {
+            return res.status(400).json({ success: false, message: Object.values(err.errors).map(e => e.message).join(', ') });
+        }
+        console.log(err.stack);
+        res.status(500).json({ success: false, message: 'Cannot reset password' });
+    }
 };
 
 //Get token from model, create cookie and send response

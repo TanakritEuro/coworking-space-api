@@ -23,6 +23,8 @@ Swagger docs: `http://localhost:5000/api-docs`
 | POST | `/auth/login` | Public — email, password |
 | GET | `/auth/me` | Logged in |
 | GET | `/auth/logout` | Logged in |
+| POST | `/auth/forgotpassword` | Public — email; sends a reset link valid 15 min |
+| PUT | `/auth/resetpassword/:resettoken` | Public — password; token works once |
 | GET | `/coworkingspaces` | Public (supports select, sort, page, limit, filters) |
 | GET | `/coworkingspaces/:id` | Public |
 | POST / PUT / DELETE | `/coworkingspaces[/:id]` | Admin |
