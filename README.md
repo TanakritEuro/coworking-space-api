@@ -30,3 +30,4 @@ Swagger docs: `http://localhost:5000/api-docs`
 | GET | `/coworkingspaces/:coworkingSpaceId/reservations` | User: own only · Admin: all |
 | POST | `/coworkingspaces/:coworkingSpaceId/reservations` | Logged in — max 3 per user (admin unlimited) |
 | GET / PUT / DELETE | `/reservations/:id` | Owner or admin |
+| GET | `/stats/reservations?from&to&groupBy&top` | Admin — most-booked spaces, peak hour/day, utilisation per space, reservations per day/month |

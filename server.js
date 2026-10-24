@@ -21,6 +21,7 @@ connectDB();
 const coworkingSpaces = require('./routes/coworkingSpaces');
 const auth = require('./routes/auth');
 const reservations = require('./routes/reservations');
+const stats = require('./routes/stats');
 
 const app = express();
 
@@ -79,6 +80,7 @@ app.use('/api-docs', swaggerUI.serve, swaggerUI.setup(swaggerDocs));
 app.use('/api/v1/coworkingspaces', coworkingSpaces);
 app.use('/api/v1/auth', auth);
 app.use('/api/v1/reservations', reservations);
+app.use('/api/v1/stats', stats);
 
 const PORT = process.env.PORT || 5000;
 
