@@ -5,15 +5,15 @@ const User = require('../models/User');
 //@access   Public
 exports.register = async (req, res, next) => {
     try {
-        const { name, tel, email, password, role } = req.body;
+        //role is deliberately not read from the body: self-registered users are always 'user'
+        const { name, tel, email, password } = req.body;
 
         //Create user
         const user = await User.create({
             name,
             tel,
             email,
-            password,
-            role
+            password
         });
 
         //Create token

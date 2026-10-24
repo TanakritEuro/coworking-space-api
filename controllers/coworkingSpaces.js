@@ -23,8 +23,8 @@ exports.getCoworkingSpaces = async (req, res, next) => {
         //Create operators ($gt, $gte, etc)
         queryStr = queryStr.replace(/\b(gt|gte|lt|lte|in)\b/g, match => `$${match}`);
 
-        //Finding resource
-        query = CoworkingSpace.find(JSON.parse(queryStr)).populate('reservations');
+        //Finding resource (reservations are not populated: this route is public and reservations are confidential)
+        query = CoworkingSpace.find(JSON.parse(queryStr));
 
         //Select Fields
         if (req.query.select) {
