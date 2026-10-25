@@ -1,0 +1,61 @@
+@startuml
+title Manage Reservation: view (GET /api/v1/reservations and GET /api/v1/reservations/:id)
+skinparam sequence {
+  ParticipantBackgroundColor #A9C4C9
+  ParticipantBorderColor #7A9EA4
+  LifeLineBorderColor #444444
+}
+skinparam database {
+  BackgroundColor #A9C4C9
+  BorderColor #7A9EA4
+}
+skinparam backgroundColor #DCE6F7
+skinparam defaultFontSize 13
+participant "<<javaScript>>\n:server" as server
+participant "<<router>>\n:reservations" as router
+participant "<<middleware>>\n:auth" as auth
+participant "<<controllers>>\n:reservations" as ctrl
+participant "<<model>>\n:Reservation" as model
+database "<<MongoDB>>\n:reservations" as db
+
+== View all reservations ==
+[-> server ++ : req.get('/reservations')
+server -> router ++ : app.use('/api/v1/reservations', reservations)
+router -> auth ++ : protect
+auth --> router -- : next() with req.user
+router -> ctrl ++ : getReservations
+alt role is user
+  ctrl -> ctrl : filter = {user: req.user.id}
+else role is admin
+  ctrl -> ctrl : filter = {} (all reservations)
+end
+ctrl -> model ++ : find(filter).populate('coworkingSpace')
+model -> db ++ : ReservationSchema
+db --> model -- : reservations
+model --> ctrl -- : reservations
+ctrl -->[ : 200 {success, count, data: reservations}
+deactivate ctrl
+deactivate router
+deactivate server
+
+== View one reservation ==
+[-> server ++ : req.get('/reservations/:id')
+server -> router ++ : app.use('/api/v1/reservations', reservations)
+router -> auth ++ : protect
+auth --> router -- : next() with req.user
+router -> ctrl ++ : getReservation
+ctrl -> model ++ : findById(id).populate('coworkingSpace')
+model -> db ++ : ReservationSchema
+db --> model -- : reservation
+model --> ctrl -- : reservation
+alt not found
+  ctrl -->[ : 404 {message: 'No reservation with the id of ...'}
+else not owner and not admin
+  ctrl -->[ : 401 {message: 'not authorized to view this reservation'}
+else owner or admin
+  ctrl -->[ : 200 {success: true, data: reservation}
+end
+deactivate ctrl
+deactivate router
+deactivate server
+@enduml

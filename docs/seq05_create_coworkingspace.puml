@@ -1,0 +1,41 @@
+@startuml
+title Manage Co-working Space: create (POST /api/v1/coworkingspaces) - Admin
+skinparam sequence {
+  ParticipantBackgroundColor #A9C4C9
+  ParticipantBorderColor #7A9EA4
+  LifeLineBorderColor #444444
+}
+skinparam database {
+  BackgroundColor #A9C4C9
+  BorderColor #7A9EA4
+}
+skinparam backgroundColor #DCE6F7
+skinparam defaultFontSize 13
+participant "<<javaScript>>\n:server" as server
+participant "<<router>>\n:coworkingSpaces" as router
+participant "<<middleware>>\n:auth" as auth
+participant "<<controllers>>\n:coworkingSpaces" as ctrl
+participant "<<model>>\n:CoworkingSpace" as model
+database "<<MongoDB>>\n:coworkingspaces" as db
+
+[-> server ++ : req.post('/coworkingspaces')\n{name, address, tel, openTime, closeTime}
+server -> router ++ : app.use('/api/v1/coworkingspaces', coworkingSpaces)
+router -> auth ++ : protect
+auth -> auth : verify JWT, load req.user
+router <-- auth : next()
+router -> auth : authorize('admin')
+alt role is not admin
+  auth -->[ : 403 {message: 'User role user is not authorized...'}
+else admin
+  auth --> router -- : next()
+  router -> ctrl ++ : createCoworkingSpace
+  ctrl -> model ++ : create(req.body)
+  model -> db ++ : CoworkingSpaceSchema
+  db --> model -- : coworkingSpace
+  model --> ctrl -- : coworkingSpace
+  ctrl -->[ : 201 {success: true, data: coworkingSpace}
+  deactivate ctrl
+end
+deactivate router
+deactivate server
+@enduml

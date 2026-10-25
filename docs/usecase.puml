@@ -1,0 +1,35 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+skinparam usecase {
+  BackgroundColor #DAE8FC
+  BorderColor #6C8EBF
+}
+
+actor "User" as user
+actor "Admin" as admin
+
+rectangle "Co-working Space Reservation System" {
+  usecase "Register" as UC_Register
+  usecase "Log in / Log out" as UC_Login
+  usecase "View\nCo-working Spaces" as UC_ViewSpaces
+  usecase "Manage\nReservation" as UC_ManageRes
+  usecase "Manage\nCo-working Space" as UC_ManageSpace
+}
+
+user --> UC_Register
+user --> UC_Login
+user --> UC_ViewSpaces
+user --> UC_ManageRes
+
+UC_Login <-- admin
+UC_ViewSpaces <-- admin
+UC_ManageRes <-- admin
+UC_ManageSpace <-- admin
+
+note right of UC_ManageRes
+  User: reserve (max 3 rooms),
+  view / edit / delete OWN reservations
+  Admin: view / edit / delete ANY reservation
+end note
+@enduml

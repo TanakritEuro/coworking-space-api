@@ -1,0 +1,41 @@
+@startuml
+title Log in (POST /api/v1/auth/login)
+skinparam sequence {
+  ParticipantBackgroundColor #A9C4C9
+  ParticipantBorderColor #7A9EA4
+  LifeLineBorderColor #444444
+}
+skinparam database {
+  BackgroundColor #A9C4C9
+  BorderColor #7A9EA4
+}
+skinparam backgroundColor #DCE6F7
+skinparam defaultFontSize 13
+participant "<<javaScript>>\n:server" as server
+participant "<<router>>\n:auth" as router
+participant "<<controllers>>\n:auth" as ctrl
+participant "<<model>>\n:User" as model
+database "<<MongoDB>>\n:users" as db
+
+[-> server ++ : req.post('/auth/login')\n{email, password}
+server -> router ++ : app.use('/api/v1/auth', auth)
+router -> ctrl ++ : login
+alt email or password missing
+  ctrl -->[ : 400 {msg: 'Please provide an email and password'}
+else
+  ctrl -> model ++ : findOne({email}).select('+password')
+  model -> db ++ : UserSchema
+  db --> model -- : user
+  model --> ctrl -- : user
+  ctrl -> model : matchPassword(password)
+  alt user found and password matches
+    ctrl -> model : getSignedJwtToken()
+    ctrl -->[ : 200 {success: true, token}\n+ cookie 'token'
+  else
+    ctrl -->[ : 400/401 {msg: 'Invalid credentials'}
+  end
+end
+deactivate ctrl
+deactivate router
+deactivate server
+@enduml

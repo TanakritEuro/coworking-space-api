@@ -1,0 +1,55 @@
+@startuml
+title Manage Reservation: reserve a room (POST /api/v1/coworkingspaces/:coworkingSpaceId/reservations)
+skinparam sequence {
+  ParticipantBackgroundColor #A9C4C9
+  ParticipantBorderColor #7A9EA4
+  LifeLineBorderColor #444444
+}
+skinparam database {
+  BackgroundColor #A9C4C9
+  BorderColor #7A9EA4
+}
+skinparam backgroundColor #DCE6F7
+skinparam defaultFontSize 13
+participant "<<javaScript>>\n:server" as server
+participant "<<router>>\n:coworkingSpaces" as spaceRouter
+participant "<<router>>\n:reservations" as router
+participant "<<middleware>>\n:auth" as auth
+participant "<<controllers>>\n:reservations" as ctrl
+participant "<<model>>\n:CoworkingSpace" as spaceModel
+participant "<<model>>\n:Reservation" as model
+database "<<MongoDB>>\n:coworkingspaces" as spaceDb
+database "<<MongoDB>>\n:reservations" as db
+
+[-> server ++ : req.post('/coworkingspaces/:coworkingSpaceId/reservations')\n{reserveDate}
+server -> spaceRouter ++ : app.use('/api/v1/coworkingspaces', coworkingSpaces)
+spaceRouter -> router ++ : router.use('/:coworkingSpaceId/reservations', reservationRouter)
+router -> auth ++ : protect, authorize('admin','user')
+auth --> router -- : next() with req.user
+router -> ctrl ++ : addReservation
+ctrl -> spaceModel ++ : findById(coworkingSpaceId)
+spaceModel -> spaceDb ++ : CoworkingSpaceSchema
+spaceDb --> spaceModel -- : coworkingSpace
+spaceModel --> ctrl -- : coworkingSpace
+alt co-working space not found
+  ctrl -->[ : 404 {message: 'No co-working space with the id of ...'}
+else found
+  ctrl -> model ++ : find({user: req.user.id})
+  model -> db ++ : ReservationSchema
+  db --> model -- : existedReservations
+  model --> ctrl -- : existedReservations
+  alt existedReservations.length >= 3 and role != admin
+    ctrl -->[ : 400 {message: 'has already made 3 reservations'}
+  else
+    ctrl -> model ++ : create({reserveDate, user, coworkingSpace})
+    model -> db ++ : ReservationSchema
+    db --> model -- : reservation
+    model --> ctrl -- : reservation
+    ctrl -->[ : 201 {success: true, data: reservation}
+  end
+end
+deactivate ctrl
+deactivate router
+deactivate spaceRouter
+deactivate server
+@enduml
