@@ -16,6 +16,46 @@ const parseReserveDate = (value) => {
     return isNaN(date.getTime()) ? null : date;
 };
 
+//Opening hours are Thai local time (Asia/Bangkok, +07:00), same as availability and stats
+const TZ_OFFSET_MS = 7 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+//"HH:mm" to minutes after midnight
+const toMinutes = (hhmm) => {
+    const [h, m] = hhmm.split(':').map(Number);
+    return h * 60 + m;
+};
+
+//Minutes after midnight (Thai time) of a reservation date
+const thaiMinuteOfDay = (date) => Math.floor((((date.getTime() + TZ_OFFSET_MS) % DAY_MS) + DAY_MS) % DAY_MS / 60000);
+
+const formatMinutes = (minutes) => `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+
+//Error message when the reservation time is outside the space's opening hours, otherwise null
+const outsideHoursMessage = (coworkingSpace, reserveDate) => {
+    const open = toMinutes(coworkingSpace.openTime);
+    const close = toMinutes(coworkingSpace.closeTime);
+    const time = thaiMinuteOfDay(reserveDate);
+
+    let isOpen;
+    if (open === close) {
+        //Same open and close time: open 24 hours
+        isOpen = true;
+    } else if (open < close) {
+        isOpen = time >= open && time < close;
+    } else {
+        //Closes after midnight, e.g. 20:00-02:00
+        isOpen = time >= open || time < close;
+    }
+
+    if (isOpen) return null;
+    return `${coworkingSpace.name} is open ${coworkingSpace.openTime}-${coworkingSpace.closeTime} (Thai time): ${formatMinutes(time)} is outside opening hours`;
+};
+
+//Error message when the reservation date is not in the future, otherwise null
+const pastDateMessage = (reserveDate) =>
+    reserveDate.getTime() <= Date.now() ? 'Reservation date must be in the future' : null;
+
 //Error message when every room of the space is already reserved on that Thai day, otherwise null
 const noRoomMessage = async (coworkingSpace, reserveDate, excludeId) => {
     const day = thaiDayOf(reserveDate);
@@ -112,6 +152,12 @@ exports.addReservation = async (req, res, next) => {
             return res.status(400).json({ success: false, message: 'Please add a valid reservation date' });
         }
 
+        //Booking rules (apply to admins too): in the future and within opening hours
+        const ruleError = pastDateMessage(reserveDate) || outsideHoursMessage(coworkingSpace, reserveDate);
+        if (ruleError) {
+            return res.status(400).json({ success: false, message: ruleError });
+        }
+
         //A room must be free on that day (applies to admins too)
         const noRoom = await noRoomMessage(coworkingSpace, reserveDate);
         if (noRoom) {
@@ -149,7 +195,7 @@ exports.updateReservation = async (req, res, next) => {
         //A reservation cannot be handed over to another user
         delete req.body.user;
 
-        //Moving to another day or space: the target space must exist and have a free room
+        //Moving to another day or space: the target space must exist, be open then and have a free room
         if (req.body.reserveDate !== undefined || req.body.coworkingSpace !== undefined) {
             const reserveDate = req.body.reserveDate !== undefined ? parseReserveDate(req.body.reserveDate) : reservation.reserveDate;
             if (!reserveDate) {
@@ -164,6 +210,13 @@ exports.updateReservation = async (req, res, next) => {
             const coworkingSpace = await CoworkingSpace.findById(spaceId);
             if (!coworkingSpace) {
                 return res.status(404).json({ success: false, message: `No co-working space with the id of ${spaceId}` });
+            }
+
+            //A new date must be in the future, and the resulting date/space must be within opening hours
+            const ruleError = (req.body.reserveDate !== undefined && pastDateMessage(reserveDate))
+                || outsideHoursMessage(coworkingSpace, reserveDate);
+            if (ruleError) {
+                return res.status(400).json({ success: false, message: ruleError });
             }
 
             //The reservation being edited does not count against itself
