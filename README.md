@@ -23,6 +23,11 @@ Swagger docs: `http://localhost:5000/api-docs`
 | POST | `/auth/login` | Public — email, password |
 | GET | `/auth/me` | Logged in |
 | GET | `/auth/logout` | Logged in |
+| POST | `/auth/forgotpassword` | Public — email; sends a reset link valid 15 min |
+| PUT | `/auth/resetpassword/:resettoken` | Public — password; token works once |
+| GET | `/coworkingspaces` | Public (supports select, sort, page, limit, filters) |
+| GET | `/coworkingspaces/:id` | Public |
+| POST / PUT / DELETE | `/coworkingspaces[/:id]` | Admin |
 | GET | `/coworkingspaces` | Public (supports select, sort, page, limit, filters; `?date=YYYY-MM-DD` adds `reservedRooms` / `availableRooms` for that day) |
 | GET | `/coworkingspaces/nearby?lat&lng&radius&date` | Public — spaces within `radius` km (default 5) of `lat`/`lng`, nearest first, each with `distanceKm`; optional `date` adds availability |
 | GET | `/coworkingspaces/:id` | Public (optional `?date=YYYY-MM-DD` adds `reservedRooms` / `availableRooms`) |
