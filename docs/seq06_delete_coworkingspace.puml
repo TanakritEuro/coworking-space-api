@@ -1,0 +1,48 @@
+@startuml
+title Manage Co-working Space: delete (DELETE /api/v1/coworkingspaces/:id) - Admin
+skinparam sequence {
+  ParticipantBackgroundColor #A9C4C9
+  ParticipantBorderColor #7A9EA4
+  LifeLineBorderColor #444444
+}
+skinparam database {
+  BackgroundColor #A9C4C9
+  BorderColor #7A9EA4
+}
+skinparam backgroundColor #DCE6F7
+skinparam defaultFontSize 13
+participant "<<javaScript>>\n:server" as server
+participant "<<router>>\n:coworkingSpaces" as router
+participant "<<middleware>>\n:auth" as auth
+participant "<<controllers>>\n:coworkingSpaces" as ctrl
+participant "<<model>>\n:CoworkingSpace" as model
+participant "<<model>>\n:Reservation" as resModel
+database "<<MongoDB>>\n:coworkingspaces" as db
+database "<<MongoDB>>\n:reservations" as resDb
+
+[-> server ++ : req.delete('/coworkingspaces/:id')
+server -> router ++ : app.use('/api/v1/coworkingspaces', coworkingSpaces)
+router -> auth ++ : protect, authorize('admin')
+auth --> router -- : next()
+router -> ctrl ++ : deleteCoworkingSpace
+ctrl -> model ++ : findById(id)
+model -> db ++ : CoworkingSpaceSchema
+db --> model -- : coworkingSpace
+model --> ctrl -- : coworkingSpace
+alt not found
+  ctrl -->[ : 404 {message: 'Co-working space not found...'}
+else found
+  ctrl -> resModel ++ : deleteMany({coworkingSpace: id})
+  resModel -> resDb ++ : ReservationSchema
+  resDb --> resModel --
+  resModel --> ctrl --
+  ctrl -> model ++ : deleteOne({_id: id})
+  model -> db ++ : CoworkingSpaceSchema
+  db --> model --
+  model --> ctrl --
+  ctrl -->[ : 200 {success: true, data: {}}
+end
+deactivate ctrl
+deactivate router
+deactivate server
+@enduml

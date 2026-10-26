@@ -1,0 +1,32 @@
+@startuml
+title View Co-working Spaces (GET /api/v1/coworkingspaces)
+skinparam sequence {
+  ParticipantBackgroundColor #A9C4C9
+  ParticipantBorderColor #7A9EA4
+  LifeLineBorderColor #444444
+}
+skinparam database {
+  BackgroundColor #A9C4C9
+  BorderColor #7A9EA4
+}
+skinparam backgroundColor #DCE6F7
+skinparam defaultFontSize 13
+participant "<<javaScript>>\n:server" as server
+participant "<<router>>\n:coworkingSpaces" as router
+participant "<<controllers>>\n:coworkingSpaces" as ctrl
+participant "<<model>>\n:CoworkingSpace" as model
+database "<<MongoDB>>\n:coworkingspaces" as db
+
+[-> server ++ : req.get('/coworkingspaces')\n?select=&sort=&page=&limit=
+server -> router ++ : app.use('/api/v1/coworkingspaces', coworkingSpaces)
+router -> ctrl ++ : getCoworkingSpaces
+ctrl -> ctrl : build filter, select, sort,\npagination from req.query
+ctrl -> model ++ : find(filter)\n.select().sort().skip().limit()
+model -> db ++ : CoworkingSpaceSchema
+db --> model -- : coworkingSpaces
+model --> ctrl -- : coworkingSpaces
+ctrl -->[ : 200 {success, count, pagination, data}
+deactivate ctrl
+deactivate router
+deactivate server
+@enduml
