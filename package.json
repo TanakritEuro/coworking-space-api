@@ -6,7 +6,8 @@
     "start": "node server",
     "dev": "nodemon server",
     "seed": "node scripts/seed.js",
-    "seed:undo": "node scripts/seed.js --undo"
+    "seed:undo": "node scripts/seed.js --undo",
+    "test:api": "newman run postman/coworking-space-api.postman_collection.json -e postman/local.postman_environment.json"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
@@ -26,6 +27,7 @@
     "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
+    "newman": "^6.2.3",
     "nodemon": "^3.0.0"
   },
   "description": "Co-working Space Reservation REST API (2110503 SW Dev Practice, Project #6)"

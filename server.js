@@ -43,10 +43,10 @@ app.use(helmet());
 //Prevent XSS attacks
 app.use(xss());
 
-//Rate Limiting
+//Rate Limiting (RATE_LIMIT_MAX raises the limit, e.g. for the Postman/Newman demo runs)
 const limiter = rateLimit({
     windowMs: 10 * 60 * 1000, //10 mins
-    max: 100
+    max: parseInt(process.env.RATE_LIMIT_MAX, 10) || 100
 });
 app.use(limiter);
 
