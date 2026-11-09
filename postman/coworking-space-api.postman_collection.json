@@ -2,16 +2,286 @@
 	"info": {
 		"_postman_id": "5b0f6a8e-2f43-4c1e-9d0a-8c3c2f7e9a11",
 		"name": "Co-working Space Reservation API",
-		"description": "Demo and regression collection for the jubjub Co-working Space Reservation API (2110503 SW Dev Practice, Project #6).\n\nRun order = presentation order. Needs `npm run seed` once (for admin@seed.test / 123456); it then runs green again without reseeding.\nReservation dates are computed in the collection pre-request script relative to now, in Thai time (+07:00): `{{today}}`, `{{yesterday}}`, `{{day1}}` … `{{day30}}`.\nEvery response must arrive within 3000 ms (collection-level test).\nA run sends about 60 requests; set RATE_LIMIT_MAX higher (e.g. 500) in config/config.env when running it more than once in 10 minutes.",
+		"description": "Demo and regression collection for the jubjub Co-working Space Reservation API (2110503 SW Dev Practice, Project #6).\n\nFolders follow the course's presentation order: 0 · Setup (preparation), Steps 1–12, Step 15 · Extra credits, then Cleanup. Needs `npm run seed` once (for admin@seed.test / 123456); it then runs green again without reseeding.\nReservation dates are computed in the collection pre-request script relative to now, in Thai time (+07:00): `{{today}}`, `{{yesterday}}`, `{{day1}}` … `{{day30}}`.\nEvery response must arrive within 3000 ms (collection-level test).\nA run sends about 65 requests; set RATE_LIMIT_MAX higher (e.g. 500) in config/config.env when running it more than once in 10 minutes.",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"item": [
 		{
-			"name": "1. Register",
+			"name": "0 · Setup",
+			"description": "Preparation, not a demo step. The admin logs in and creates the spaces this run needs: a normal test space (open 08:00–20:00, 5 rooms) and a 1-room space whose only room the admin books 7 days from now, so that day is full. Both spaces are deleted in Cleanup.",
+			"item": [
+				{
+					"name": "Admin logs in (setup)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('Returns a JWT token', function () {",
+									"    const json = pm.response.json();",
+									"    pm.expect(json.success).to.equal(true);",
+									"    pm.expect(json.token).to.be.a('string').and.not.be.empty;",
+									"    pm.collectionVariables.set('adminToken', json.token);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"auth": {
+							"type": "noauth"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/login",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"login"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"admin@seed.test\",\n    \"password\": \"123456\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Admin creates the test space",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"//Unique name every run (name is unique in the database)",
+									"pm.collectionVariables.set('spaceName', 'Postman Space ' + Date.now());"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status code is 201', function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"pm.test('Space is created with opening hours 08:00-20:00, lat/lng and 5 rooms', function () {",
+									"    const space = pm.response.json().data;",
+									"    pm.expect(space.name).to.equal(pm.collectionVariables.get('spaceName'));",
+									"    pm.expect(space.openTime).to.equal('08:00');",
+									"    pm.expect(space.closeTime).to.equal('20:00');",
+									"    pm.expect(space.latitude).to.equal(13.7465);",
+									"    pm.expect(space.longitude).to.equal(100.5348);",
+									"    pm.expect(space.totalRooms).to.equal(5);",
+									"    pm.collectionVariables.set('spaceId', space._id);",
+									"});",
+									"pm.test('GeoJSON location is built from latitude/longitude', function () {",
+									"    pm.expect(pm.response.json().data.location.coordinates).to.eql([100.5348, 13.7465]);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{adminToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/coworkingspaces",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"coworkingspaces"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"{{spaceName}}\",\n    \"address\": \"999 Rama I Rd, Pathum Wan, Bangkok\",\n    \"tel\": \"021234567\",\n    \"openTime\": \"08:00\",\n    \"closeTime\": \"20:00\",\n    \"latitude\": 13.7465,\n    \"longitude\": 100.5348,\n    \"totalRooms\": 5\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Admin creates a space with 1 room",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.collectionVariables.set('smallSpaceName', 'Postman Small Space ' + Date.now());"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status code is 201', function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"pm.test('Space is created with totalRooms 1', function () {",
+									"    const space = pm.response.json().data;",
+									"    pm.expect(space.totalRooms).to.equal(1);",
+									"    pm.collectionVariables.set('smallSpaceId', space._id);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{adminToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/coworkingspaces",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"coworkingspaces"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"{{smallSpaceName}}\",\n    \"address\": \"999 Rama I Rd, Pathum Wan, Bangkok\",\n    \"tel\": \"021234567\",\n    \"openTime\": \"08:00\",\n    \"closeTime\": \"20:00\",\n    \"latitude\": 13.73,\n    \"longitude\": 100.54,\n    \"totalRooms\": 1\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Admin books its only room in 7 days (that day is now full)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status code is 201', function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"pm.test('Reservation saved for this space and date', function () {",
+									"    const json = pm.response.json();",
+									"    const sent = JSON.parse(pm.variables.replaceIn(pm.request.body.raw)).reserveDate;",
+									"    pm.expect(json.success).to.equal(true);",
+									"    pm.expect(json.data.coworkingSpace).to.equal(pm.collectionVariables.get('smallSpaceId'));",
+									"    ",
+									"    pm.expect(new Date(json.data.reserveDate).getTime()).to.equal(new Date(sent).getTime());",
+									"    pm.collectionVariables.set('resSetupSmall', json.data._id);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{adminToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/coworkingspaces/{{smallSpaceId}}/reservations",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"coworkingspaces",
+								"{{smallSpaceId}}",
+								"reservations"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"reserveDate\": \"{{day7}}T10:00:00+07:00\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Step 1 · Register (+ validation)",
 			"description": "Requirement 1: register with name, tel, email and password.",
 			"item": [
 				{
-					"name": "Register user A (role sent in the body is ignored)",
+					"name": "Register user A (role: admin in the body)",
 					"event": [
 						{
 							"listen": "prerequest",
@@ -82,6 +352,7 @@
 							"script": {
 								"type": "text/javascript",
 								"exec": [
+									"//A new email every run, so the collection can run again without reseeding",
 									"pm.collectionVariables.set('userBEmail', 'userb.' + Date.now() + '@example.com');"
 								]
 							}
@@ -96,6 +367,7 @@
 									"});",
 									"pm.test('Returns a JWT token', function () {",
 									"    const json = pm.response.json();",
+									"    pm.expect(json.success).to.equal(true);",
 									"    pm.expect(json.token).to.be.a('string').and.not.be.empty;",
 									"    pm.collectionVariables.set('userBToken', json.token);",
 									"});"
@@ -241,15 +513,67 @@
 						}
 					},
 					"response": []
+				},
+				{
+					"name": "User A profile: role is user (role in the body was ignored)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test('Role is user, not admin', function () {",
+									"    pm.expect(pm.response.json().data.role).to.equal('user');",
+									"});",
+									"pm.test('Name, tel and email were saved; password is not returned', function () {",
+									"    const user = pm.response.json().data;",
+									"    pm.expect(user.name).to.equal('Postman User A');",
+									"    pm.expect(user.tel).to.equal('0812345678');",
+									"    pm.expect(user.email).to.equal(pm.collectionVariables.get('userAEmail'));",
+									"    pm.expect(user).to.not.have.property('password');",
+									"    pm.collectionVariables.set('userAId', user._id);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{userAToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/me",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"me"
+							]
+						}
+					},
+					"response": []
 				}
 			]
 		},
 		{
-			"name": "2. Login / Logout",
-			"description": "Requirement 2: log in with email and password, and log out.",
+			"name": "Step 2 · User log-in",
+			"description": "Requirement 2: log in with email and password.",
 			"item": [
 				{
-					"name": "Login as admin (seeded)",
+					"name": "User A logs in",
 					"event": [
 						{
 							"listen": "test",
@@ -262,59 +586,6 @@
 									"pm.test('Returns a JWT token', function () {",
 									"    const json = pm.response.json();",
 									"    pm.expect(json.success).to.equal(true);",
-									"    pm.expect(json.token).to.be.a('string').and.not.be.empty;",
-									"    pm.collectionVariables.set('adminToken', json.token);",
-									"});"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"auth": {
-							"type": "noauth"
-						},
-						"url": {
-							"raw": "{{baseUrl}}/auth/login",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"auth",
-								"login"
-							]
-						},
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"email\": \"admin@seed.test\",\n    \"password\": \"123456\"\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "Login as user A",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status code is 200', function () {",
-									"    pm.response.to.have.status(200);",
-									"});",
-									"pm.test('Returns a JWT token', function () {",
-									"    const json = pm.response.json();",
 									"    pm.expect(json.token).to.be.a('string').and.not.be.empty;",
 									"    pm.collectionVariables.set('userAToken', json.token);",
 									"});"
@@ -408,114 +679,15 @@
 						}
 					},
 					"response": []
-				},
-				{
-					"name": "Get logged-in user (/auth/me shows tel)",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status code is 200', function () {",
-									"    pm.response.to.have.status(200);",
-									"});",
-									"pm.test('Shows name, tel and email of user A', function () {",
-									"    const data = pm.response.json().data;",
-									"    pm.expect(data.name).to.equal('Postman User A');",
-									"    pm.expect(data.tel).to.equal('0812345678');",
-									"    pm.expect(data.email).to.equal(pm.collectionVariables.get('userAEmail'));",
-									"    pm.collectionVariables.set('userAId', data._id);",
-									"});",
-									"pm.test('Role is user (role: admin sent at registration was ignored)', function () {",
-									"    pm.expect(pm.response.json().data.role).to.equal('user');",
-									"});",
-									"pm.test('Password is not returned', function () {",
-									"    pm.expect(pm.response.json().data).to.not.have.property('password');",
-									"});"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [],
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{userAToken}}",
-									"type": "string"
-								}
-							]
-						},
-						"url": {
-							"raw": "{{baseUrl}}/auth/me",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"auth",
-								"me"
-							]
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "Logout",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status code is 200', function () {",
-									"    pm.response.to.have.status(200);",
-									"});",
-									"pm.test('Logout succeeds and clears the token cookie', function () {",
-									"    pm.expect(pm.response.json().success).to.equal(true);",
-									"    pm.expect(pm.response.headers.get('Set-Cookie')).to.include('token=none');",
-									"});"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [],
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{userAToken}}",
-									"type": "string"
-								}
-							]
-						},
-						"url": {
-							"raw": "{{baseUrl}}/auth/logout",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"auth",
-								"logout"
-							]
-						}
-					},
-					"response": []
 				}
 			]
 		},
 		{
-			"name": "3. Co-working spaces",
-			"description": "Requirement 3 (list spaces) plus admin management. The admin creates a space with lat/lng, totalRooms and opening hours; it is deleted again in Cleanup.",
+			"name": "Step 3 · User views co-working spaces",
+			"description": "Requirement 3: anyone can list co-working spaces with name, address, tel, open and close time.",
 			"item": [
 				{
-					"name": "List spaces (public, select / sort / pagination)",
+					"name": "List spaces (select / sort / pagination)",
 					"event": [
 						{
 							"listen": "test",
@@ -550,7 +722,14 @@
 						"method": "GET",
 						"header": [],
 						"auth": {
-							"type": "noauth"
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{userAToken}}",
+									"type": "string"
+								}
+							]
 						},
 						"url": {
 							"raw": "{{baseUrl}}/coworkingspaces?select=name,address,tel,openTime,closeTime&sort=name&page=1&limit=2",
@@ -583,320 +762,7 @@
 					"response": []
 				},
 				{
-					"name": "Admin creates a space (lat/lng, totalRooms, opening hours)",
-					"event": [
-						{
-							"listen": "prerequest",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"//Unique name every run (name is unique in the database)",
-									"pm.collectionVariables.set('spaceName', 'Postman Space ' + Date.now());"
-								]
-							}
-						},
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status code is 201', function () {",
-									"    pm.response.to.have.status(201);",
-									"});",
-									"pm.test('Space is created with all fields', function () {",
-									"    const data = pm.response.json().data;",
-									"    pm.expect(data.name).to.equal(pm.collectionVariables.get('spaceName'));",
-									"    pm.expect(data.openTime).to.equal('08:00');",
-									"    pm.expect(data.closeTime).to.equal('20:00');",
-									"    pm.expect(data.latitude).to.equal(13.7465);",
-									"    pm.expect(data.longitude).to.equal(100.5348);",
-									"    pm.expect(data.totalRooms).to.equal(5);",
-									"    pm.collectionVariables.set('spaceId', data._id);",
-									"});",
-									"pm.test('GeoJSON location is built from latitude/longitude', function () {",
-									"    pm.expect(pm.response.json().data.location.coordinates).to.eql([100.5348, 13.7465]);",
-									"});"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{adminToken}}",
-									"type": "string"
-								}
-							]
-						},
-						"url": {
-							"raw": "{{baseUrl}}/coworkingspaces",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"coworkingspaces"
-							]
-						},
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"name\": \"{{spaceName}}\",\n    \"address\": \"999 Rama I Rd, Pathum Wan, Bangkok\",\n    \"tel\": \"021234567\",\n    \"openTime\": \"08:00\",\n    \"closeTime\": \"20:00\",\n    \"latitude\": 13.7465,\n    \"longitude\": 100.5348,\n    \"totalRooms\": 5\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "User creates a space → 403",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status code is 403', function () {",
-									"    pm.response.to.have.status(403);",
-									"});",
-									"pm.test('Only admins may create spaces', function () {",
-									"    const json = pm.response.json();",
-									"    pm.expect(json.success).to.equal(false);",
-									"    pm.expect(json.message).to.match(/not authorized/);",
-									"});"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{userAToken}}",
-									"type": "string"
-								}
-							]
-						},
-						"url": {
-							"raw": "{{baseUrl}}/coworkingspaces",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"coworkingspaces"
-							]
-						},
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"name\": \"User Space {{$timestamp}}\",\n    \"address\": \"999 Rama I Rd, Pathum Wan, Bangkok\",\n    \"tel\": \"021234567\",\n    \"openTime\": \"08:00\",\n    \"closeTime\": \"20:00\",\n    \"latitude\": 13.7465,\n    \"longitude\": 100.5348,\n    \"totalRooms\": 5\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "Create with latitude 91 → 400",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status code is 400', function () {",
-									"    pm.response.to.have.status(400);",
-									"});",
-									"pm.test('Explains the latitude range', function () {",
-									"    const json = pm.response.json();",
-									"    pm.expect(json.success).to.equal(false);",
-									"    pm.expect(json.message).to.match(/Latitude must be between -90 and 90/);",
-									"});"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{adminToken}}",
-									"type": "string"
-								}
-							]
-						},
-						"url": {
-							"raw": "{{baseUrl}}/coworkingspaces",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"coworkingspaces"
-							]
-						},
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"name\": \"Invalid Lat {{$timestamp}}\",\n    \"address\": \"999 Rama I Rd, Pathum Wan, Bangkok\",\n    \"tel\": \"021234567\",\n    \"openTime\": \"08:00\",\n    \"closeTime\": \"20:00\",\n    \"latitude\": 91,\n    \"longitude\": 100.5348,\n    \"totalRooms\": 5\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "Create with totalRooms 0 → 400",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status code is 400', function () {",
-									"    pm.response.to.have.status(400);",
-									"});",
-									"pm.test('Explains the totalRooms minimum', function () {",
-									"    const json = pm.response.json();",
-									"    pm.expect(json.success).to.equal(false);",
-									"    pm.expect(json.message).to.match(/Total rooms must be at least 1/);",
-									"});"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{adminToken}}",
-									"type": "string"
-								}
-							]
-						},
-						"url": {
-							"raw": "{{baseUrl}}/coworkingspaces",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"coworkingspaces"
-							]
-						},
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"name\": \"Invalid Rooms {{$timestamp}}\",\n    \"address\": \"999 Rama I Rd, Pathum Wan, Bangkok\",\n    \"tel\": \"021234567\",\n    \"openTime\": \"08:00\",\n    \"closeTime\": \"20:00\",\n    \"latitude\": 13.7465,\n    \"longitude\": 100.5348,\n    \"totalRooms\": 0\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "Create with openTime \"8am\" → 400",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status code is 400', function () {",
-									"    pm.response.to.have.status(400);",
-									"});",
-									"pm.test('Explains the HH:mm time format', function () {",
-									"    const json = pm.response.json();",
-									"    pm.expect(json.success).to.equal(false);",
-									"    pm.expect(json.message).to.match(/HH:mm/);",
-									"});"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{adminToken}}",
-									"type": "string"
-								}
-							]
-						},
-						"url": {
-							"raw": "{{baseUrl}}/coworkingspaces",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"coworkingspaces"
-							]
-						},
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"name\": \"Invalid Time {{$timestamp}}\",\n    \"address\": \"999 Rama I Rd, Pathum Wan, Bangkok\",\n    \"tel\": \"021234567\",\n    \"openTime\": \"8am\",\n    \"closeTime\": \"20:00\",\n    \"latitude\": 13.7465,\n    \"longitude\": 100.5348,\n    \"totalRooms\": 5\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "Admin updates the space (totalRooms, closeTime)",
+					"name": "View one space",
 					"event": [
 						{
 							"listen": "test",
@@ -906,74 +772,13 @@
 									"pm.test('Status code is 200', function () {",
 									"    pm.response.to.have.status(200);",
 									"});",
-									"pm.test('totalRooms is 8 and closeTime is 21:00', function () {",
-									"    const data = pm.response.json().data;",
-									"    pm.expect(data.totalRooms).to.equal(8);",
-									"    pm.expect(data.closeTime).to.equal('21:00');",
-									"    pm.expect(data.openTime).to.equal('08:00');",
-									"});"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "PUT",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{adminToken}}",
-									"type": "string"
-								}
-							]
-						},
-						"url": {
-							"raw": "{{baseUrl}}/coworkingspaces/{{spaceId}}",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"coworkingspaces",
-								"{{spaceId}}"
-							]
-						},
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"totalRooms\": 8,\n    \"closeTime\": \"21:00\"\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "Get one space (public)",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status code is 200', function () {",
-									"    pm.response.to.have.status(200);",
-									"});",
-									"pm.test('Returns the updated space with name, address, tel and hours', function () {",
-									"    const data = pm.response.json().data;",
-									"    pm.expect(data._id).to.equal(pm.collectionVariables.get('spaceId'));",
-									"    pm.expect(data.name).to.equal(pm.collectionVariables.get('spaceName'));",
-									"    pm.expect(data).to.include.all.keys('address', 'tel', 'openTime', 'closeTime', 'latitude', 'longitude');",
-									"    pm.expect(data.totalRooms).to.equal(8);",
-									"    pm.expect(data.closeTime).to.equal('21:00');",
+									"pm.test('Returns the test space with name, address, tel and opening hours', function () {",
+									"    const space = pm.response.json().data;",
+									"    pm.expect(space._id).to.equal(pm.collectionVariables.get('spaceId'));",
+									"    pm.expect(space.name).to.equal(pm.collectionVariables.get('spaceName'));",
+									"    pm.expect(space).to.include.all.keys('address', 'tel', 'openTime', 'closeTime');",
+									"    pm.expect(space.openTime).to.equal('08:00');",
+									"    pm.expect(space.closeTime).to.equal('20:00');",
 									"});"
 								]
 							}
@@ -983,7 +788,14 @@
 						"method": "GET",
 						"header": [],
 						"auth": {
-							"type": "noauth"
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{userAToken}}",
+									"type": "string"
+								}
+							]
 						},
 						"url": {
 							"raw": "{{baseUrl}}/coworkingspaces/{{spaceId}}",
@@ -1001,11 +813,11 @@
 			]
 		},
 		{
-			"name": "4. User reservations",
-			"description": "Requirements 3–6: a user reserves up to 3 rooms and views, edits and deletes their own reservations. Dates are {{dayN}} = N days from now (Thai time), inside opening hours.",
+			"name": "Step 4 · User creates a booking (+ invalid conditions)",
+			"description": "Requirement 3: a logged-in user books a room (date + co-working space), up to 3 bookings. Dates are {{dayN}} = N days from now in Thai time. The 3-booking limit is checked first, so the other rejections are shown while user A has 2 bookings. At the end user B makes a booking that steps 5–7 use.",
 			"item": [
 				{
-					"name": "Reserve room 1 (in 3 days, 10:00)",
+					"name": "Book room 1 (in 3 days, 10:00)",
 					"event": [
 						{
 							"listen": "test",
@@ -1070,7 +882,7 @@
 					"response": []
 				},
 				{
-					"name": "Reserve room 2 (in 4 days, 10:00)",
+					"name": "Book room 2 (in 4 days, 10:00)",
 					"event": [
 						{
 							"listen": "test",
@@ -1135,7 +947,251 @@
 					"response": []
 				},
 				{
-					"name": "Reserve room 3 (in 5 days, 10:00)",
+					"name": "Book a past date → 400",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status code is 400', function () {",
+									"    pm.response.to.have.status(400);",
+									"});",
+									"pm.test('Rejected: date must be in the future', function () {",
+									"    const json = pm.response.json();",
+									"    pm.expect(json.success).to.equal(false);",
+									"    pm.expect(json.message).to.match(/must be in the future/);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{userAToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/coworkingspaces/{{spaceId}}/reservations",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"coworkingspaces",
+								"{{spaceId}}",
+								"reservations"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"reserveDate\": \"{{yesterday}}T10:00:00+07:00\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Book outside opening hours (22:00) → 400",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status code is 400', function () {",
+									"    pm.response.to.have.status(400);",
+									"});",
+									"pm.test('Rejected: outside 08:00-20:00', function () {",
+									"    const json = pm.response.json();",
+									"    pm.expect(json.success).to.equal(false);",
+									"    pm.expect(json.message).to.match(/outside opening hours/);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{userAToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/coworkingspaces/{{spaceId}}/reservations",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"coworkingspaces",
+								"{{spaceId}}",
+								"reservations"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"reserveDate\": \"{{day2}}T22:00:00+07:00\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Book the full-day space → 400",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status code is 400', function () {",
+									"    pm.response.to.have.status(400);",
+									"});",
+									"pm.test('Rejected: no room is free that day', function () {",
+									"    const json = pm.response.json();",
+									"    pm.expect(json.success).to.equal(false);",
+									"    pm.expect(json.message).to.match(/No rooms available/);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{userAToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/coworkingspaces/{{smallSpaceId}}/reservations",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"coworkingspaces",
+								"{{smallSpaceId}}",
+								"reservations"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"reserveDate\": \"{{day7}}T14:00:00+07:00\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Book a non-existent space → 404",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status code is 404', function () {",
+									"    pm.response.to.have.status(404);",
+									"});",
+									"pm.test('Rejected: co-working space not found', function () {",
+									"    const json = pm.response.json();",
+									"    pm.expect(json.success).to.equal(false);",
+									"    pm.expect(json.message).to.match(/No co-working space/);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{userAToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/coworkingspaces/ffffffffffffffffffffffff/reservations",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"coworkingspaces",
+								"ffffffffffffffffffffffff",
+								"reservations"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"reserveDate\": \"{{day3}}T10:00:00+07:00\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Book room 3 (in 5 days, 10:00)",
 					"event": [
 						{
 							"listen": "test",
@@ -1200,7 +1256,7 @@
 					"response": []
 				},
 				{
-					"name": "Reserve a 4th room → 400",
+					"name": "Book a 4th room → 400",
 					"event": [
 						{
 							"listen": "test",
@@ -1210,7 +1266,7 @@
 									"pm.test('Status code is 400', function () {",
 									"    pm.response.to.have.status(400);",
 									"});",
-									"pm.test('A user cannot have more than 3 reservations', function () {",
+									"pm.test('Rejected: a user cannot have more than 3 bookings', function () {",
 									"    const json = pm.response.json();",
 									"    pm.expect(json.success).to.equal(false);",
 									"    pm.expect(json.message).to.match(/already made 3 reservations/);",
@@ -1261,7 +1317,78 @@
 					"response": []
 				},
 				{
-					"name": "View own reservations",
+					"name": "User B books a room (another user's booking for steps 5–7)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status code is 201', function () {",
+									"    pm.response.to.have.status(201);",
+									"});",
+									"pm.test('Reservation saved for this space and date', function () {",
+									"    const json = pm.response.json();",
+									"    const sent = JSON.parse(pm.variables.replaceIn(pm.request.body.raw)).reserveDate;",
+									"    pm.expect(json.success).to.equal(true);",
+									"    pm.expect(json.data.coworkingSpace).to.equal(pm.collectionVariables.get('spaceId'));",
+									"    ",
+									"    pm.expect(new Date(json.data.reserveDate).getTime()).to.equal(new Date(sent).getTime());",
+									"    pm.collectionVariables.set('resB1', json.data._id);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{userBToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/coworkingspaces/{{spaceId}}/reservations",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"coworkingspaces",
+								"{{spaceId}}",
+								"reservations"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"reserveDate\": \"{{day4}}T15:00:00+07:00\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Step 5 · User views own bookings",
+			"description": "Requirement 4: a user views their own bookings only (bookings are confidential to their owner).",
+			"item": [
+				{
+					"name": "User A views own bookings",
 					"event": [
 						{
 							"listen": "test",
@@ -1272,15 +1399,18 @@
 									"    pm.response.to.have.status(200);",
 									"});",
 									"const json = pm.response.json();",
-									"pm.test('Shows exactly the 3 reservations of user A', function () {",
+									"pm.test('Shows exactly the 3 bookings of user A', function () {",
 									"    pm.expect(json.count).to.equal(3);",
 									"    const ids = json.data.map(function (r) { return r._id; });",
 									"    pm.expect(ids).to.have.members([pm.collectionVariables.get('resA1'), pm.collectionVariables.get('resA2'), pm.collectionVariables.get('resA3')]);",
 									"});",
-									"pm.test('Every reservation belongs to user A', function () {",
-									"    json.data.forEach(function (r) { pm.expect(r.user).to.equal(pm.collectionVariables.get('userAId')); });",
+									"pm.test(\"Every booking belongs to user A; none of user B's\", function () {",
+									"    json.data.forEach(function (r) {",
+									"        pm.expect(r.user).to.equal(pm.collectionVariables.get('userAId'));",
+									"        pm.expect(r._id).to.not.equal(pm.collectionVariables.get('resB1'));",
+									"    });",
 									"});",
-									"pm.test('Each reservation shows the space name and hours', function () {",
+									"pm.test('Each booking shows the space name and opening hours', function () {",
 									"    json.data.forEach(function (r) { pm.expect(r.coworkingSpace).to.include.all.keys('name', 'openTime', 'closeTime'); });",
 									"});"
 								]
@@ -1313,7 +1443,59 @@
 					"response": []
 				},
 				{
-					"name": "Edit own reservation (move to 6 days, 14:00)",
+					"name": "View user B's booking by id → 401",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status code is 401', function () {",
+									"    pm.response.to.have.status(401);",
+									"});",
+									"pm.test('User A is not authorized to view user B\\'s booking', function () {",
+									"    const json = pm.response.json();",
+									"    pm.expect(json.success).to.equal(false);",
+									"    pm.expect(json.message).to.match(/not authorized to view/);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{userAToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/reservations/{{resB1}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"reservations",
+								"{{resB1}}"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Step 6 · User edits own booking",
+			"description": "Requirement 5: a user edits their own booking; the new date must be in the future and inside opening hours.",
+			"item": [
+				{
+					"name": "Edit own booking (move to 6 days, 14:00)",
 					"event": [
 						{
 							"listen": "test",
@@ -1323,11 +1505,11 @@
 									"pm.test('Status code is 200', function () {",
 									"    pm.response.to.have.status(200);",
 									"});",
-									"pm.test('Reservation date is updated', function () {",
-									"    const data = pm.response.json().data;",
+									"pm.test('Booking date is updated', function () {",
+									"    const booking = pm.response.json().data;",
 									"    const sent = JSON.parse(pm.variables.replaceIn(pm.request.body.raw)).reserveDate;",
-									"    pm.expect(data._id).to.equal(pm.collectionVariables.get('resA1'));",
-									"    pm.expect(new Date(data.reserveDate).getTime()).to.equal(new Date(sent).getTime());",
+									"    pm.expect(booking._id).to.equal(pm.collectionVariables.get('resA1'));",
+									"    pm.expect(new Date(booking.reserveDate).getTime()).to.equal(new Date(sent).getTime());",
 									"});"
 								]
 							}
@@ -1374,630 +1556,7 @@
 					"response": []
 				},
 				{
-					"name": "Delete own reservation",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status code is 200', function () {",
-									"    pm.response.to.have.status(200);",
-									"});",
-									"pm.test('Reservation is deleted', function () {",
-									"    const json = pm.response.json();",
-									"    pm.expect(json.success).to.equal(true);",
-									"    pm.expect(json.data).to.eql({});",
-									"});"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "DELETE",
-						"header": [],
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{userAToken}}",
-									"type": "string"
-								}
-							]
-						},
-						"url": {
-							"raw": "{{baseUrl}}/reservations/{{resA3}}",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"reservations",
-								"{{resA3}}"
-							]
-						}
-					},
-					"response": []
-				}
-			]
-		},
-		{
-			"name": "5. Confidentiality",
-			"description": "Non-functional requirement: reservations are confidential to their owner. User B tries to access user A's reservation.",
-			"item": [
-				{
-					"name": "User B views user A's reservation → 401",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status code is 401', function () {",
-									"    pm.response.to.have.status(401);",
-									"});",
-									"pm.test('User B is not authorized to view it', function () {",
-									"    const json = pm.response.json();",
-									"    pm.expect(json.success).to.equal(false);",
-									"    pm.expect(json.message).to.match(/not authorized to view/);",
-									"});"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [],
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{userBToken}}",
-									"type": "string"
-								}
-							]
-						},
-						"url": {
-							"raw": "{{baseUrl}}/reservations/{{resA1}}",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"reservations",
-								"{{resA1}}"
-							]
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "User B edits user A's reservation → 401",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status code is 401', function () {",
-									"    pm.response.to.have.status(401);",
-									"});",
-									"pm.test('User B is not authorized to edit it', function () {",
-									"    const json = pm.response.json();",
-									"    pm.expect(json.success).to.equal(false);",
-									"    pm.expect(json.message).to.match(/not authorized to update/);",
-									"});"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "PUT",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{userBToken}}",
-									"type": "string"
-								}
-							]
-						},
-						"url": {
-							"raw": "{{baseUrl}}/reservations/{{resA1}}",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"reservations",
-								"{{resA1}}"
-							]
-						},
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"reserveDate\": \"{{day7}}T10:00:00+07:00\"\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "User B deletes user A's reservation → 401",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status code is 401', function () {",
-									"    pm.response.to.have.status(401);",
-									"});",
-									"pm.test('User B is not authorized to delete it', function () {",
-									"    const json = pm.response.json();",
-									"    pm.expect(json.success).to.equal(false);",
-									"    pm.expect(json.message).to.match(/not authorized to delete/);",
-									"});"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "DELETE",
-						"header": [],
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{userBToken}}",
-									"type": "string"
-								}
-							]
-						},
-						"url": {
-							"raw": "{{baseUrl}}/reservations/{{resA1}}",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"reservations",
-								"{{resA1}}"
-							]
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "User B's list does not contain user A's reservations",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status code is 200', function () {",
-									"    pm.response.to.have.status(200);",
-									"});",
-									"pm.test('No reservation of user A is listed', function () {",
-									"    pm.response.json().data.forEach(function (r) {",
-									"        pm.expect(r.user).to.not.equal(pm.collectionVariables.get('userAId'));",
-									"    });",
-									"});"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [],
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{userBToken}}",
-									"type": "string"
-								}
-							]
-						},
-						"url": {
-							"raw": "{{baseUrl}}/reservations",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"reservations"
-							]
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "List reservations without a token → 401",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status code is 401', function () {",
-									"    pm.response.to.have.status(401);",
-									"});",
-									"pm.test('Not logged in', function () {",
-									"    const json = pm.response.json();",
-									"    pm.expect(json.success).to.equal(false);",
-									"    pm.expect(json.message).to.match(/Not authorize/);",
-									"});"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [],
-						"auth": {
-							"type": "noauth"
-						},
-						"url": {
-							"raw": "{{baseUrl}}/reservations",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"reservations"
-							]
-						}
-					},
-					"response": []
-				}
-			]
-		},
-		{
-			"name": "6. Admin",
-			"description": "Requirements 7–9: an admin views, edits and deletes any reservation.",
-			"item": [
-				{
-					"name": "Admin views all reservations",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status code is 200', function () {",
-									"    pm.response.to.have.status(200);",
-									"});",
-									"const json = pm.response.json();",
-									"pm.test(\"Includes user A's reservations, not the deleted one\", function () {",
-									"    const ids = json.data.map(function (r) { return r._id; });",
-									"    pm.expect(ids).to.include.members([pm.collectionVariables.get('resA1'), pm.collectionVariables.get('resA2')]);",
-									"    pm.expect(ids).to.not.include(pm.collectionVariables.get('resA3'));",
-									"});",
-									"pm.test('count matches the number of reservations returned', function () {",
-									"    pm.expect(json.count).to.equal(json.data.length);",
-									"});"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [],
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{adminToken}}",
-									"type": "string"
-								}
-							]
-						},
-						"url": {
-							"raw": "{{baseUrl}}/reservations",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"reservations"
-							]
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "Admin views user A's reservation",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status code is 200', function () {",
-									"    pm.response.to.have.status(200);",
-									"});",
-									"pm.test(\"Returns user A's reservation, unchanged by user B\", function () {",
-									"    const data = pm.response.json().data;",
-									"    pm.expect(data._id).to.equal(pm.collectionVariables.get('resA1'));",
-									"    pm.expect(data.user).to.equal(pm.collectionVariables.get('userAId'));",
-									"    pm.expect(data.coworkingSpace.name).to.equal(pm.collectionVariables.get('spaceName'));",
-									"    pm.expect(new Date(data.reserveDate).getTime()).to.equal(new Date(pm.variables.replaceIn('{{day6}}T14:00:00+07:00')).getTime());",
-									"});"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [],
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{adminToken}}",
-									"type": "string"
-								}
-							]
-						},
-						"url": {
-							"raw": "{{baseUrl}}/reservations/{{resA1}}",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"reservations",
-								"{{resA1}}"
-							]
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "Admin edits user A's reservation (8 days, 11:00)",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status code is 200', function () {",
-									"    pm.response.to.have.status(200);",
-									"});",
-									"pm.test('Reservation date is updated and it still belongs to user A', function () {",
-									"    const data = pm.response.json().data;",
-									"    const sent = JSON.parse(pm.variables.replaceIn(pm.request.body.raw)).reserveDate;",
-									"    pm.expect(new Date(data.reserveDate).getTime()).to.equal(new Date(sent).getTime());",
-									"    pm.expect(data.user).to.equal(pm.collectionVariables.get('userAId'));",
-									"});"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "PUT",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{adminToken}}",
-									"type": "string"
-								}
-							]
-						},
-						"url": {
-							"raw": "{{baseUrl}}/reservations/{{resA2}}",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"reservations",
-								"{{resA2}}"
-							]
-						},
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"reserveDate\": \"{{day8}}T11:00:00+07:00\"\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "Admin deletes user A's reservation",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status code is 200', function () {",
-									"    pm.response.to.have.status(200);",
-									"});",
-									"pm.test('Reservation is deleted', function () {",
-									"    pm.expect(pm.response.json().success).to.equal(true);",
-									"});"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "DELETE",
-						"header": [],
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{adminToken}}",
-									"type": "string"
-								}
-							]
-						},
-						"url": {
-							"raw": "{{baseUrl}}/reservations/{{resA2}}",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"reservations",
-								"{{resA2}}"
-							]
-						}
-					},
-					"response": []
-				}
-			]
-		},
-		{
-			"name": "7. Booking rules",
-			"description": "A reservation must be in the future and inside the space's opening hours (Thai time). The test space is open 08:00–21:00 after the update in folder 3.",
-			"item": [
-				{
-					"name": "Reserve a past date → 400",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status code is 400', function () {",
-									"    pm.response.to.have.status(400);",
-									"});",
-									"pm.test('Rejected: date must be in the future', function () {",
-									"    const json = pm.response.json();",
-									"    pm.expect(json.success).to.equal(false);",
-									"    pm.expect(json.message).to.match(/must be in the future/);",
-									"});"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{userBToken}}",
-									"type": "string"
-								}
-							]
-						},
-						"url": {
-							"raw": "{{baseUrl}}/coworkingspaces/{{spaceId}}/reservations",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"coworkingspaces",
-								"{{spaceId}}",
-								"reservations"
-							]
-						},
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"reserveDate\": \"{{yesterday}}T10:00:00+07:00\"\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "Reserve outside opening hours (22:00) → 400",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status code is 400', function () {",
-									"    pm.response.to.have.status(400);",
-									"});",
-									"pm.test('Rejected: outside 08:00-21:00', function () {",
-									"    const json = pm.response.json();",
-									"    pm.expect(json.success).to.equal(false);",
-									"    pm.expect(json.message).to.match(/outside opening hours/);",
-									"});"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{userBToken}}",
-									"type": "string"
-								}
-							]
-						},
-						"url": {
-							"raw": "{{baseUrl}}/coworkingspaces/{{spaceId}}/reservations",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"coworkingspaces",
-								"{{spaceId}}",
-								"reservations"
-							]
-						},
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"reserveDate\": \"{{day2}}T22:00:00+07:00\"\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "Edit a reservation into the past → 400",
+					"name": "Edit own booking into the past → 400",
 					"event": [
 						{
 							"listen": "test",
@@ -2057,7 +1616,7 @@
 					"response": []
 				},
 				{
-					"name": "Edit a reservation outside opening hours (21:30) → 400",
+					"name": "Edit own booking outside opening hours (21:30) → 400",
 					"event": [
 						{
 							"listen": "test",
@@ -2067,7 +1626,7 @@
 									"pm.test('Status code is 400', function () {",
 									"    pm.response.to.have.status(400);",
 									"});",
-									"pm.test('Rejected: outside 08:00-21:00', function () {",
+									"pm.test('Rejected: outside 08:00-20:00', function () {",
 									"    const json = pm.response.json();",
 									"    pm.expect(json.success).to.equal(false);",
 									"    pm.expect(json.message).to.match(/outside opening hours/);",
@@ -2115,258 +1674,29 @@
 						}
 					},
 					"response": []
-				}
-			]
-		},
-		{
-			"name": "8. Extra – nearby & availability",
-			"description": "Additional requirements 4–6: nearby search, available rooms per date, and rejecting a booking when no room is free.",
-			"item": [
-				{
-					"name": "Nearby spaces within 3 km of the test space",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status code is 200', function () {",
-									"    pm.response.to.have.status(200);",
-									"});",
-									"const json = pm.response.json();",
-									"pm.test('Includes the test space at distance 0 km', function () {",
-									"    const mine = json.data.find(function (s) { return s._id === pm.collectionVariables.get('spaceId'); });",
-									"    pm.expect(mine).to.not.equal(undefined);",
-									"    pm.expect(mine.distanceKm).to.equal(0);",
-									"});",
-									"pm.test('Sorted by distanceKm, nearest first, all within 3 km', function () {",
-									"    json.data.forEach(function (s, i) {",
-									"        pm.expect(s.distanceKm).to.be.a('number').and.be.at.most(3);",
-									"        if (i > 0) pm.expect(s.distanceKm).to.be.at.least(json.data[i - 1].distanceKm);",
-									"    });",
-									"});",
-									"pm.test('count matches the number of results', function () {",
-									"    pm.expect(json.count).to.equal(json.data.length);",
-									"});"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [],
-						"auth": {
-							"type": "noauth"
-						},
-						"url": {
-							"raw": "{{baseUrl}}/coworkingspaces/nearby?lat=13.7465&lng=100.5348&radius=3",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"coworkingspaces",
-								"nearby"
-							],
-							"query": [
-								{
-									"key": "lat",
-									"value": "13.7465"
-								},
-								{
-									"key": "lng",
-									"value": "100.5348"
-								},
-								{
-									"key": "radius",
-									"value": "3"
-								}
-							]
-						}
-					},
-					"response": []
 				},
 				{
-					"name": "Nearby from a far location → empty result",
+					"name": "Edit user B's booking → 401",
 					"event": [
 						{
 							"listen": "test",
 							"script": {
 								"type": "text/javascript",
 								"exec": [
-									"pm.test('Status code is 200', function () {",
-									"    pm.response.to.have.status(200);",
+									"pm.test('Status code is 401', function () {",
+									"    pm.response.to.have.status(401);",
 									"});",
-									"pm.test('No spaces in the middle of the Pacific', function () {",
-									"    const json = pm.response.json();",
-									"    pm.expect(json.count).to.equal(0);",
-									"    pm.expect(json.data).to.eql([]);",
-									"});"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [],
-						"auth": {
-							"type": "noauth"
-						},
-						"url": {
-							"raw": "{{baseUrl}}/coworkingspaces/nearby?lat=0&lng=-160&radius=5",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"coworkingspaces",
-								"nearby"
-							],
-							"query": [
-								{
-									"key": "lat",
-									"value": "0"
-								},
-								{
-									"key": "lng",
-									"value": "-160"
-								},
-								{
-									"key": "radius",
-									"value": "5"
-								}
-							]
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "Nearby without lat → 400",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status code is 400', function () {",
-									"    pm.response.to.have.status(400);",
-									"});",
-									"pm.test('Asks for lat and lng', function () {",
+									"pm.test('User A is not authorized to edit user B\\'s booking', function () {",
 									"    const json = pm.response.json();",
 									"    pm.expect(json.success).to.equal(false);",
-									"    pm.expect(json.message).to.match(/lat/);",
+									"    pm.expect(json.message).to.match(/not authorized to update/);",
 									"});"
 								]
 							}
 						}
 					],
 					"request": {
-						"method": "GET",
-						"header": [],
-						"auth": {
-							"type": "noauth"
-						},
-						"url": {
-							"raw": "{{baseUrl}}/coworkingspaces/nearby?lng=100.5348",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"coworkingspaces",
-								"nearby"
-							],
-							"query": [
-								{
-									"key": "lng",
-									"value": "100.5348"
-								}
-							]
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "Nearby with radius 0 → 400",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status code is 400', function () {",
-									"    pm.response.to.have.status(400);",
-									"});",
-									"pm.test('radius must be positive', function () {",
-									"    const json = pm.response.json();",
-									"    pm.expect(json.success).to.equal(false);",
-									"    pm.expect(json.message).to.match(/radius/);",
-									"});"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [],
-						"auth": {
-							"type": "noauth"
-						},
-						"url": {
-							"raw": "{{baseUrl}}/coworkingspaces/nearby?lat=13.7465&lng=100.5348&radius=0",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"coworkingspaces",
-								"nearby"
-							],
-							"query": [
-								{
-									"key": "lat",
-									"value": "13.7465"
-								},
-								{
-									"key": "lng",
-									"value": "100.5348"
-								},
-								{
-									"key": "radius",
-									"value": "0"
-								}
-							]
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "Admin creates a space with 1 room",
-					"event": [
-						{
-							"listen": "prerequest",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.collectionVariables.set('smallSpaceName', 'Postman Small Space ' + Date.now());"
-								]
-							}
-						},
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status code is 201', function () {",
-									"    pm.response.to.have.status(201);",
-									"});",
-									"pm.test('Space is created with totalRooms 1', function () {",
-									"    const data = pm.response.json().data;",
-									"    pm.expect(data.totalRooms).to.equal(1);",
-									"    pm.collectionVariables.set('smallSpaceId', data._id);",
-									"});"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
+						"method": "PUT",
 						"header": [
 							{
 								"key": "Content-Type",
@@ -2378,138 +1708,19 @@
 							"bearer": [
 								{
 									"key": "token",
-									"value": "{{adminToken}}",
+									"value": "{{userAToken}}",
 									"type": "string"
 								}
 							]
 						},
 						"url": {
-							"raw": "{{baseUrl}}/coworkingspaces",
+							"raw": "{{baseUrl}}/reservations/{{resB1}}",
 							"host": [
 								"{{baseUrl}}"
 							],
 							"path": [
-								"coworkingspaces"
-							]
-						},
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"name\": \"{{smallSpaceName}}\",\n    \"address\": \"999 Rama I Rd, Pathum Wan, Bangkok\",\n    \"tel\": \"021234567\",\n    \"openTime\": \"08:00\",\n    \"closeTime\": \"20:00\",\n    \"latitude\": 13.73,\n    \"longitude\": 100.54,\n    \"totalRooms\": 1\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "List spaces with ?date= shows reservedRooms / availableRooms",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status code is 200', function () {",
-									"    pm.response.to.have.status(200);",
-									"});",
-									"const json = pm.response.json();",
-									"pm.test('Every space has reservedRooms and availableRooms', function () {",
-									"    json.data.forEach(function (s) {",
-									"        pm.expect(s).to.have.property('reservedRooms');",
-									"        pm.expect(s).to.have.property('availableRooms');",
-									"    });",
-									"});",
-									"pm.test('The 1-room space has 1 room available in 7 days', function () {",
-									"    const small = json.data.find(function (s) { return s._id === pm.collectionVariables.get('smallSpaceId'); });",
-									"    pm.expect(small.reservedRooms).to.equal(0);",
-									"    pm.expect(small.availableRooms).to.equal(1);",
-									"});"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [],
-						"auth": {
-							"type": "noauth"
-						},
-						"url": {
-							"raw": "{{baseUrl}}/coworkingspaces?date={{day7}}&limit=100",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"coworkingspaces"
-							],
-							"query": [
-								{
-									"key": "date",
-									"value": "{{day7}}"
-								},
-								{
-									"key": "limit",
-									"value": "100"
-								}
-							]
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "User B books the only room (in 7 days, 10:00)",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status code is 201', function () {",
-									"    pm.response.to.have.status(201);",
-									"});",
-									"pm.test('Reservation saved for this user, space and date', function () {",
-									"    const json = pm.response.json();",
-									"    const sent = JSON.parse(pm.variables.replaceIn(pm.request.body.raw)).reserveDate;",
-									"    pm.expect(json.success).to.equal(true);",
-									"    pm.expect(json.data.coworkingSpace).to.equal(pm.collectionVariables.get('smallSpaceId'));",
-									"    ",
-									"    pm.expect(new Date(json.data.reserveDate).getTime()).to.equal(new Date(sent).getTime());",
-									"    pm.collectionVariables.set('resBSmall', json.data._id);",
-									"});"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{userBToken}}",
-									"type": "string"
-								}
-							]
-						},
-						"url": {
-							"raw": "{{baseUrl}}/coworkingspaces/{{smallSpaceId}}/reservations",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"coworkingspaces",
-								"{{smallSpaceId}}",
-								"reservations"
+								"reservations",
+								"{{resB1}}"
 							]
 						},
 						"body": {
@@ -2523,116 +1734,15 @@
 						}
 					},
 					"response": []
-				},
+				}
+			]
+		},
+		{
+			"name": "Step 7 · User deletes own booking",
+			"description": "Requirement 6: a user deletes their own booking only.",
+			"item": [
 				{
-					"name": "Availability after booking: 0 rooms left",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status code is 200', function () {",
-									"    pm.response.to.have.status(200);",
-									"});",
-									"pm.test('reservedRooms is 1 and availableRooms is 0 in 7 days', function () {",
-									"    const data = pm.response.json().data;",
-									"    pm.expect(data.totalRooms).to.equal(1);",
-									"    pm.expect(data.reservedRooms).to.equal(1);",
-									"    pm.expect(data.availableRooms).to.equal(0);",
-									"});"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [],
-						"auth": {
-							"type": "noauth"
-						},
-						"url": {
-							"raw": "{{baseUrl}}/coworkingspaces/{{smallSpaceId}}?date={{day7}}",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"coworkingspaces",
-								"{{smallSpaceId}}"
-							],
-							"query": [
-								{
-									"key": "date",
-									"value": "{{day7}}"
-								}
-							]
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "Next booking that day (admin) → 400",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status code is 400', function () {",
-									"    pm.response.to.have.status(400);",
-									"});",
-									"pm.test('Rejected: no room free that day (applies to admins too)', function () {",
-									"    const json = pm.response.json();",
-									"    pm.expect(json.success).to.equal(false);",
-									"    pm.expect(json.message).to.match(/No rooms available/);",
-									"});"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{adminToken}}",
-									"type": "string"
-								}
-							]
-						},
-						"url": {
-							"raw": "{{baseUrl}}/coworkingspaces/{{smallSpaceId}}/reservations",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"coworkingspaces",
-								"{{smallSpaceId}}",
-								"reservations"
-							]
-						},
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"reserveDate\": \"{{day7}}T15:00:00+07:00\"\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "User B deletes the booking",
+					"name": "Delete own booking",
 					"event": [
 						{
 							"listen": "test",
@@ -2643,7 +1753,9 @@
 									"    pm.response.to.have.status(200);",
 									"});",
 									"pm.test('Reservation is deleted', function () {",
-									"    pm.expect(pm.response.json().success).to.equal(true);",
+									"    const json = pm.response.json();",
+									"    pm.expect(json.success).to.equal(true);",
+									"    pm.expect(json.data).to.eql({});",
 									"});"
 								]
 							}
@@ -2657,65 +1769,65 @@
 							"bearer": [
 								{
 									"key": "token",
-									"value": "{{userBToken}}",
+									"value": "{{userAToken}}",
 									"type": "string"
 								}
 							]
 						},
 						"url": {
-							"raw": "{{baseUrl}}/reservations/{{resBSmall}}",
+							"raw": "{{baseUrl}}/reservations/{{resA3}}",
 							"host": [
 								"{{baseUrl}}"
 							],
 							"path": [
 								"reservations",
-								"{{resBSmall}}"
+								"{{resA3}}"
 							]
 						}
 					},
 					"response": []
 				},
 				{
-					"name": "Availability after delete: 1 room free again",
+					"name": "Delete user B's booking → 401",
 					"event": [
 						{
 							"listen": "test",
 							"script": {
 								"type": "text/javascript",
 								"exec": [
-									"pm.test('Status code is 200', function () {",
-									"    pm.response.to.have.status(200);",
+									"pm.test('Status code is 401', function () {",
+									"    pm.response.to.have.status(401);",
 									"});",
-									"pm.test('reservedRooms is 0 and availableRooms is 1 in 7 days', function () {",
-									"    const data = pm.response.json().data;",
-									"    pm.expect(data.totalRooms).to.equal(1);",
-									"    pm.expect(data.reservedRooms).to.equal(0);",
-									"    pm.expect(data.availableRooms).to.equal(1);",
+									"pm.test('User A is not authorized to delete user B\\'s booking', function () {",
+									"    const json = pm.response.json();",
+									"    pm.expect(json.success).to.equal(false);",
+									"    pm.expect(json.message).to.match(/not authorized to delete/);",
 									"});"
 								]
 							}
 						}
 					],
 					"request": {
-						"method": "GET",
+						"method": "DELETE",
 						"header": [],
 						"auth": {
-							"type": "noauth"
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{userAToken}}",
+									"type": "string"
+								}
+							]
 						},
 						"url": {
-							"raw": "{{baseUrl}}/coworkingspaces/{{smallSpaceId}}?date={{day7}}",
+							"raw": "{{baseUrl}}/reservations/{{resB1}}",
 							"host": [
 								"{{baseUrl}}"
 							],
 							"path": [
-								"coworkingspaces",
-								"{{smallSpaceId}}"
-							],
-							"query": [
-								{
-									"key": "date",
-									"value": "{{day7}}"
-								}
+								"reservations",
+								"{{resB1}}"
 							]
 						}
 					},
@@ -2724,11 +1836,11 @@
 			]
 		},
 		{
-			"name": "9. Extra – stats",
-			"description": "Additional requirement 1: reservation statistics for the admin.",
+			"name": "Step 8 · User log-out",
+			"description": "Requirement 2: log out. The client then discards the token, so the user is no longer logged in.",
 			"item": [
 				{
-					"name": "Admin gets stats for the next 30 days",
+					"name": "User A logs out",
 					"event": [
 						{
 							"listen": "test",
@@ -2738,17 +1850,13 @@
 									"pm.test('Status code is 200', function () {",
 									"    pm.response.to.have.status(200);",
 									"});",
-									"//Not named \"data\": that is a reserved global in the Postman sandbox",
-									"const stats = pm.response.json().data;",
-									"pm.test('Has the main statistics keys', function () {",
-									"    pm.expect(stats).to.include.all.keys('range', 'totalReservations', 'mostBookedSpaces', 'peakHour', 'peakDay', 'byHour', 'byDayOfWeek', 'utilisation', 'reservationsPer');",
+									"pm.test('Logout succeeds and clears the token cookie', function () {",
+									"    pm.expect(pm.response.json().success).to.equal(true);",
+									"    pm.expect(pm.response.headers.get('Set-Cookie')).to.include('token=none');",
 									"});",
-									"pm.test('Counts at least user A\\'s reservation; 24 hours and 7 days in the distributions', function () {",
-									"    pm.expect(stats.totalReservations).to.be.at.least(1);",
-									"    pm.expect(stats.byHour).to.have.lengthOf(24);",
-									"    pm.expect(stats.byDayOfWeek).to.have.lengthOf(7);",
-									"    pm.expect(stats.reservationsPer.groupBy).to.equal('day');",
-									"});"
+									"",
+									"//The client forgets user A's token",
+									"pm.collectionVariables.set('userAToken', '');"
 								]
 							}
 						}
@@ -2761,109 +1869,42 @@
 							"bearer": [
 								{
 									"key": "token",
-									"value": "{{adminToken}}",
+									"value": "{{userAToken}}",
 									"type": "string"
 								}
 							]
 						},
 						"url": {
-							"raw": "{{baseUrl}}/stats/reservations?from={{today}}&to={{day30}}",
+							"raw": "{{baseUrl}}/auth/logout",
 							"host": [
 								"{{baseUrl}}"
 							],
 							"path": [
-								"stats",
-								"reservations"
-							],
-							"query": [
-								{
-									"key": "from",
-									"value": "{{today}}"
-								},
-								{
-									"key": "to",
-									"value": "{{day30}}"
-								}
+								"auth",
+								"logout"
 							]
 						}
 					},
 					"response": []
 				},
 				{
-					"name": "Admin gets stats grouped by month",
+					"name": "GET /auth/me without a token → 401",
 					"event": [
 						{
 							"listen": "test",
 							"script": {
 								"type": "text/javascript",
 								"exec": [
-									"pm.test('Status code is 200', function () {",
-									"    pm.response.to.have.status(200);",
+									"pm.test('Status code is 401', function () {",
+									"    pm.response.to.have.status(401);",
 									"});",
-									"pm.test('reservationsPer is grouped by month (YYYY-MM)', function () {",
-									"    const per = pm.response.json().data.reservationsPer;",
-									"    pm.expect(per.groupBy).to.equal('month');",
-									"    per.data.forEach(function (p) { pm.expect(p.period).to.match(/^\\d{4}-\\d{2}$/); });",
-									"});"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [],
-						"auth": {
-							"type": "bearer",
-							"bearer": [
-								{
-									"key": "token",
-									"value": "{{adminToken}}",
-									"type": "string"
-								}
-							]
-						},
-						"url": {
-							"raw": "{{baseUrl}}/stats/reservations?from={{today}}&to={{day30}}&groupBy=month",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"stats",
-								"reservations"
-							],
-							"query": [
-								{
-									"key": "from",
-									"value": "{{today}}"
-								},
-								{
-									"key": "to",
-									"value": "{{day30}}"
-								},
-								{
-									"key": "groupBy",
-									"value": "month"
-								}
-							]
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "User gets stats → 403",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status code is 403', function () {",
-									"    pm.response.to.have.status(403);",
-									"});",
-									"pm.test('Only admins may see statistics', function () {",
+									"pm.test('Not logged in', function () {",
 									"    const json = pm.response.json();",
 									"    pm.expect(json.success).to.equal(false);",
-									"    pm.expect(json.message).to.match(/not authorized/);",
+									"    pm.expect(json.message).to.match(/Not authorize/);",
+									"});",
+									"pm.test(\"User A's token variable was cleared\", function () {",
+									"    pm.expect(pm.collectionVariables.get('userAToken')).to.equal('');",
 									"});"
 								]
 							}
@@ -2883,33 +1924,103 @@
 							]
 						},
 						"url": {
-							"raw": "{{baseUrl}}/stats/reservations",
+							"raw": "{{baseUrl}}/auth/me",
 							"host": [
 								"{{baseUrl}}"
 							],
 							"path": [
-								"stats",
-								"reservations"
+								"auth",
+								"me"
 							]
 						}
 					},
 					"response": []
-				},
+				}
+			]
+		},
+		{
+			"name": "Step 9 · Admin log-in",
+			"description": "The seeded admin (admin@seed.test / 123456) logs in.",
+			"item": [
 				{
-					"name": "Stats with groupBy=week → 400",
+					"name": "Admin logs in",
 					"event": [
 						{
 							"listen": "test",
 							"script": {
 								"type": "text/javascript",
 								"exec": [
-									"pm.test('Status code is 400', function () {",
-									"    pm.response.to.have.status(400);",
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
 									"});",
-									"pm.test('Explains the allowed groupBy values', function () {",
+									"pm.test('Returns a JWT token', function () {",
 									"    const json = pm.response.json();",
-									"    pm.expect(json.success).to.equal(false);",
-									"    pm.expect(json.message).to.match(/groupBy must be either day or month/);",
+									"    pm.expect(json.success).to.equal(true);",
+									"    pm.expect(json.token).to.be.a('string').and.not.be.empty;",
+									"    pm.collectionVariables.set('adminToken', json.token);",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"auth": {
+							"type": "noauth"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/login",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"login"
+							]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"admin@seed.test\",\n    \"password\": \"123456\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Step 10 · Admin views any booking",
+			"description": "Requirement 7: an admin views any booking.",
+			"item": [
+				{
+					"name": "Admin views all bookings",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"const json = pm.response.json();",
+									"pm.test(\"Includes the bookings of user A and user B, not the deleted one\", function () {",
+									"    const ids = json.data.map(function (r) { return r._id; });",
+									"    pm.expect(ids).to.include.members([pm.collectionVariables.get('resA1'), pm.collectionVariables.get('resA2'), pm.collectionVariables.get('resB1')]);",
+									"    pm.expect(ids).to.not.include(pm.collectionVariables.get('resA3'));",
+									"});",
+									"pm.test('count matches the number of bookings returned', function () {",
+									"    pm.expect(json.count).to.equal(json.data.length);",
 									"});"
 								]
 							}
@@ -2929,19 +2040,60 @@
 							]
 						},
 						"url": {
-							"raw": "{{baseUrl}}/stats/reservations?groupBy=week",
+							"raw": "{{baseUrl}}/reservations",
 							"host": [
 								"{{baseUrl}}"
 							],
 							"path": [
-								"stats",
 								"reservations"
-							],
-							"query": [
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Admin views one of user A's bookings",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test(\"Returns user A's booking with the date edited in step 6\", function () {",
+									"    const booking = pm.response.json().data;",
+									"    pm.expect(booking._id).to.equal(pm.collectionVariables.get('resA1'));",
+									"    pm.expect(booking.user).to.equal(pm.collectionVariables.get('userAId'));",
+									"    pm.expect(booking.coworkingSpace.name).to.equal(pm.collectionVariables.get('spaceName'));",
+									"    pm.expect(new Date(booking.reserveDate).getTime()).to.equal(new Date(pm.variables.replaceIn('{{day6}}T14:00:00+07:00')).getTime());",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"auth": {
+							"type": "bearer",
+							"bearer": [
 								{
-									"key": "groupBy",
-									"value": "week"
+									"key": "token",
+									"value": "{{adminToken}}",
+									"type": "string"
 								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/reservations/{{resA1}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"reservations",
+								"{{resA1}}"
 							]
 						}
 					},
@@ -2950,11 +2102,11 @@
 			]
 		},
 		{
-			"name": "10. Extra – password reset",
-			"description": "Additional requirements 2–3: forgot / reset password. The reset token is sent by email (or printed in the server console when SMTP_HOST is empty), so the happy path is the manual request at the end of the collection.",
+			"name": "Step 11 · Admin edits any booking",
+			"description": "Requirement 8: an admin edits any booking.",
 			"item": [
 				{
-					"name": "Forgot password for a registered email → 200",
+					"name": "Admin edits user A's booking (8 days, 11:00)",
 					"event": [
 						{
 							"listen": "test",
@@ -2964,117 +2116,11 @@
 									"pm.test('Status code is 200', function () {",
 									"    pm.response.to.have.status(200);",
 									"});",
-									"pm.test('Generic success message', function () {",
-									"    const json = pm.response.json();",
-									"    pm.expect(json.success).to.equal(true);",
-									"    pm.expect(json.message).to.be.a('string').and.not.be.empty;",
-									"    pm.collectionVariables.set('forgotMessage', json.message);",
-									"});"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"auth": {
-							"type": "noauth"
-						},
-						"url": {
-							"raw": "{{baseUrl}}/auth/forgotpassword",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"auth",
-								"forgotpassword"
-							]
-						},
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"email\": \"{{userAEmail}}\"\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "Forgot password for an unknown email → also 200",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status code is 200', function () {",
-									"    pm.response.to.have.status(200);",
-									"});",
-									"pm.test('Same message as for a registered email (no account enumeration)', function () {",
-									"    const json = pm.response.json();",
-									"    pm.expect(json.success).to.equal(true);",
-									"    pm.expect(json.message).to.equal(pm.collectionVariables.get('forgotMessage'));",
-									"});"
-								]
-							}
-						}
-					],
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"auth": {
-							"type": "noauth"
-						},
-						"url": {
-							"raw": "{{baseUrl}}/auth/forgotpassword",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"auth",
-								"forgotpassword"
-							]
-						},
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"email\": \"nobody.{{$timestamp}}@example.com\"\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "Reset password with an invalid token → 400",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"type": "text/javascript",
-								"exec": [
-									"pm.test('Status code is 400', function () {",
-									"    pm.response.to.have.status(400);",
-									"});",
-									"pm.test('Token is rejected', function () {",
-									"    const json = pm.response.json();",
-									"    pm.expect(json.success).to.equal(false);",
-									"    pm.expect(json.message).to.match(/Invalid or expired reset token/);",
+									"pm.test('Booking date is updated and it still belongs to user A', function () {",
+									"    const booking = pm.response.json().data;",
+									"    const sent = JSON.parse(pm.variables.replaceIn(pm.request.body.raw)).reserveDate;",
+									"    pm.expect(new Date(booking.reserveDate).getTime()).to.equal(new Date(sent).getTime());",
+									"    pm.expect(booking.user).to.equal(pm.collectionVariables.get('userAId'));",
 									"});"
 								]
 							}
@@ -3089,22 +2135,28 @@
 							}
 						],
 						"auth": {
-							"type": "noauth"
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{adminToken}}",
+									"type": "string"
+								}
+							]
 						},
 						"url": {
-							"raw": "{{baseUrl}}/auth/resetpassword/this-is-not-a-valid-token",
+							"raw": "{{baseUrl}}/reservations/{{resA2}}",
 							"host": [
 								"{{baseUrl}}"
 							],
 							"path": [
-								"auth",
-								"resetpassword",
-								"this-is-not-a-valid-token"
+								"reservations",
+								"{{resA2}}"
 							]
 						},
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"password\": \"newpass123\"\n}",
+							"raw": "{\n    \"reserveDate\": \"{{day8}}T11:00:00+07:00\"\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -3117,11 +2169,11 @@
 			]
 		},
 		{
-			"name": "11. Cleanup",
-			"description": "The admin deletes the spaces this run created; their reservations are deleted with them (cascade). The run stops after this folder.",
+			"name": "Step 12 · Admin deletes any booking",
+			"description": "Requirement 9: an admin deletes any booking.",
 			"item": [
 				{
-					"name": "Test space still has a reservation before delete",
+					"name": "Admin deletes user A's booking",
 					"event": [
 						{
 							"listen": "test",
@@ -3131,9 +2183,1296 @@
 									"pm.test('Status code is 200', function () {",
 									"    pm.response.to.have.status(200);",
 									"});",
-									"pm.test(\"User A's reservation is still there\", function () {",
+									"pm.test('Reservation is deleted', function () {",
+									"    const json = pm.response.json();",
+									"    pm.expect(json.success).to.equal(true);",
+									"    pm.expect(json.data).to.eql({});",
+									"});"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{adminToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{baseUrl}}/reservations/{{resA2}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"reservations",
+								"{{resA2}}"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Step 15 · Extra credits",
+			"description": "Additional requirements 1–6.",
+			"item": [
+				{
+					"name": "Nearby & availability",
+					"description": "Additional requirements 4–6: space latitude/longitude and nearby search, admin-set total rooms, available rooms per date, and rejecting a booking when no room is free.",
+					"item": [
+						{
+							"name": "User creates a space → 403",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Status code is 403', function () {",
+											"    pm.response.to.have.status(403);",
+											"});",
+											"pm.test('Only admins may create spaces', function () {",
+											"    const json = pm.response.json();",
+											"    pm.expect(json.success).to.equal(false);",
+											"    pm.expect(json.message).to.match(/not authorized/);",
+											"});"
+										]
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{userBToken}}",
+											"type": "string"
+										}
+									]
+								},
+								"url": {
+									"raw": "{{baseUrl}}/coworkingspaces",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"coworkingspaces"
+									]
+								},
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"User Space {{$timestamp}}\",\n    \"address\": \"999 Rama I Rd, Pathum Wan, Bangkok\",\n    \"tel\": \"021234567\",\n    \"openTime\": \"08:00\",\n    \"closeTime\": \"20:00\",\n    \"latitude\": 13.7465,\n    \"longitude\": 100.5348,\n    \"totalRooms\": 5\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Create with latitude 91 → 400",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Status code is 400', function () {",
+											"    pm.response.to.have.status(400);",
+											"});",
+											"pm.test('Explains the latitude range', function () {",
+											"    const json = pm.response.json();",
+											"    pm.expect(json.success).to.equal(false);",
+											"    pm.expect(json.message).to.match(/Latitude must be between -90 and 90/);",
+											"});"
+										]
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{adminToken}}",
+											"type": "string"
+										}
+									]
+								},
+								"url": {
+									"raw": "{{baseUrl}}/coworkingspaces",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"coworkingspaces"
+									]
+								},
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Invalid Lat {{$timestamp}}\",\n    \"address\": \"999 Rama I Rd, Pathum Wan, Bangkok\",\n    \"tel\": \"021234567\",\n    \"openTime\": \"08:00\",\n    \"closeTime\": \"20:00\",\n    \"latitude\": 91,\n    \"longitude\": 100.5348,\n    \"totalRooms\": 5\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Create with totalRooms 0 → 400",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Status code is 400', function () {",
+											"    pm.response.to.have.status(400);",
+											"});",
+											"pm.test('Explains the totalRooms minimum', function () {",
+											"    const json = pm.response.json();",
+											"    pm.expect(json.success).to.equal(false);",
+											"    pm.expect(json.message).to.match(/Total rooms must be at least 1/);",
+											"});"
+										]
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{adminToken}}",
+											"type": "string"
+										}
+									]
+								},
+								"url": {
+									"raw": "{{baseUrl}}/coworkingspaces",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"coworkingspaces"
+									]
+								},
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Invalid Rooms {{$timestamp}}\",\n    \"address\": \"999 Rama I Rd, Pathum Wan, Bangkok\",\n    \"tel\": \"021234567\",\n    \"openTime\": \"08:00\",\n    \"closeTime\": \"20:00\",\n    \"latitude\": 13.7465,\n    \"longitude\": 100.5348,\n    \"totalRooms\": 0\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Create with openTime \"8am\" → 400",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Status code is 400', function () {",
+											"    pm.response.to.have.status(400);",
+											"});",
+											"pm.test('Explains the HH:mm time format', function () {",
+											"    const json = pm.response.json();",
+											"    pm.expect(json.success).to.equal(false);",
+											"    pm.expect(json.message).to.match(/HH:mm/);",
+											"});"
+										]
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{adminToken}}",
+											"type": "string"
+										}
+									]
+								},
+								"url": {
+									"raw": "{{baseUrl}}/coworkingspaces",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"coworkingspaces"
+									]
+								},
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Invalid Time {{$timestamp}}\",\n    \"address\": \"999 Rama I Rd, Pathum Wan, Bangkok\",\n    \"tel\": \"021234567\",\n    \"openTime\": \"8am\",\n    \"closeTime\": \"20:00\",\n    \"latitude\": 13.7465,\n    \"longitude\": 100.5348,\n    \"totalRooms\": 5\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Admin sets totalRooms of the test space to 8",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Status code is 200', function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"pm.test('totalRooms is 8, other fields unchanged', function () {",
+											"    const space = pm.response.json().data;",
+											"    pm.expect(space.totalRooms).to.equal(8);",
+											"    pm.expect(space.openTime).to.equal('08:00');",
+											"    pm.expect(space.closeTime).to.equal('20:00');",
+											"});"
+										]
+									}
+								}
+							],
+							"request": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{adminToken}}",
+											"type": "string"
+										}
+									]
+								},
+								"url": {
+									"raw": "{{baseUrl}}/coworkingspaces/{{spaceId}}",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"coworkingspaces",
+										"{{spaceId}}"
+									]
+								},
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"totalRooms\": 8\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Nearby spaces within 3 km of the test space",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Status code is 200', function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"const json = pm.response.json();",
+											"pm.test('Includes the test space at distance 0 km', function () {",
+											"    const mine = json.data.find(function (s) { return s._id === pm.collectionVariables.get('spaceId'); });",
+											"    pm.expect(mine).to.not.equal(undefined);",
+											"    pm.expect(mine.distanceKm).to.equal(0);",
+											"});",
+											"pm.test('Sorted by distanceKm, nearest first, all within 3 km', function () {",
+											"    json.data.forEach(function (s, i) {",
+											"        pm.expect(s.distanceKm).to.be.a('number').and.be.at.most(3);",
+											"        if (i > 0) pm.expect(s.distanceKm).to.be.at.least(json.data[i - 1].distanceKm);",
+											"    });",
+											"});",
+											"pm.test('count matches the number of results', function () {",
+											"    pm.expect(json.count).to.equal(json.data.length);",
+											"});"
+										]
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [],
+								"auth": {
+									"type": "noauth"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/coworkingspaces/nearby?lat=13.7465&lng=100.5348&radius=3",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"coworkingspaces",
+										"nearby"
+									],
+									"query": [
+										{
+											"key": "lat",
+											"value": "13.7465"
+										},
+										{
+											"key": "lng",
+											"value": "100.5348"
+										},
+										{
+											"key": "radius",
+											"value": "3"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Nearby from a far location → empty result",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Status code is 200', function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"pm.test('No spaces in the middle of the Pacific', function () {",
+											"    const json = pm.response.json();",
+											"    pm.expect(json.count).to.equal(0);",
+											"    pm.expect(json.data).to.eql([]);",
+											"});"
+										]
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [],
+								"auth": {
+									"type": "noauth"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/coworkingspaces/nearby?lat=0&lng=-160&radius=5",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"coworkingspaces",
+										"nearby"
+									],
+									"query": [
+										{
+											"key": "lat",
+											"value": "0"
+										},
+										{
+											"key": "lng",
+											"value": "-160"
+										},
+										{
+											"key": "radius",
+											"value": "5"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Nearby without lat → 400",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Status code is 400', function () {",
+											"    pm.response.to.have.status(400);",
+											"});",
+											"pm.test('Asks for lat and lng', function () {",
+											"    const json = pm.response.json();",
+											"    pm.expect(json.success).to.equal(false);",
+											"    pm.expect(json.message).to.match(/lat/);",
+											"});"
+										]
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [],
+								"auth": {
+									"type": "noauth"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/coworkingspaces/nearby?lng=100.5348",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"coworkingspaces",
+										"nearby"
+									],
+									"query": [
+										{
+											"key": "lng",
+											"value": "100.5348"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Nearby with radius 0 → 400",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Status code is 400', function () {",
+											"    pm.response.to.have.status(400);",
+											"});",
+											"pm.test('radius must be positive', function () {",
+											"    const json = pm.response.json();",
+											"    pm.expect(json.success).to.equal(false);",
+											"    pm.expect(json.message).to.match(/radius/);",
+											"});"
+										]
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [],
+								"auth": {
+									"type": "noauth"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/coworkingspaces/nearby?lat=13.7465&lng=100.5348&radius=0",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"coworkingspaces",
+										"nearby"
+									],
+									"query": [
+										{
+											"key": "lat",
+											"value": "13.7465"
+										},
+										{
+											"key": "lng",
+											"value": "100.5348"
+										},
+										{
+											"key": "radius",
+											"value": "0"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "List spaces with ?date= shows reservedRooms / availableRooms",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Status code is 200', function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"const json = pm.response.json();",
+											"pm.test('Every space has reservedRooms and availableRooms', function () {",
+											"    json.data.forEach(function (s) {",
+											"        pm.expect(s).to.have.property('reservedRooms');",
+											"        pm.expect(s).to.have.property('availableRooms');",
+											"    });",
+											"});",
+											"pm.test('The 1-room space is full in 7 days (booked in Setup)', function () {",
+											"    const small = json.data.find(function (s) { return s._id === pm.collectionVariables.get('smallSpaceId'); });",
+											"    pm.expect(small.reservedRooms).to.equal(1);",
+											"    pm.expect(small.availableRooms).to.equal(0);",
+											"});"
+										]
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [],
+								"auth": {
+									"type": "noauth"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/coworkingspaces?date={{day7}}&limit=100",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"coworkingspaces"
+									],
+									"query": [
+										{
+											"key": "date",
+											"value": "{{day7}}"
+										},
+										{
+											"key": "limit",
+											"value": "100"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Admin deletes the Setup booking",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Status code is 200', function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"pm.test('Reservation is deleted', function () {",
+											"    const json = pm.response.json();",
+											"    pm.expect(json.success).to.equal(true);",
+											"    pm.expect(json.data).to.eql({});",
+											"});"
+										]
+									}
+								}
+							],
+							"request": {
+								"method": "DELETE",
+								"header": [],
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{adminToken}}",
+											"type": "string"
+										}
+									]
+								},
+								"url": {
+									"raw": "{{baseUrl}}/reservations/{{resSetupSmall}}",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"reservations",
+										"{{resSetupSmall}}"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Availability after delete: 1 room free",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Status code is 200', function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"pm.test('reservedRooms is 0 and availableRooms is 1 in 7 days', function () {",
+											"    const space = pm.response.json().data;",
+											"    pm.expect(space.totalRooms).to.equal(1);",
+											"    pm.expect(space.reservedRooms).to.equal(0);",
+											"    pm.expect(space.availableRooms).to.equal(1);",
+											"});"
+										]
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [],
+								"auth": {
+									"type": "noauth"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/coworkingspaces/{{smallSpaceId}}?date={{day7}}",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"coworkingspaces",
+										"{{smallSpaceId}}"
+									],
+									"query": [
+										{
+											"key": "date",
+											"value": "{{day7}}"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "User B books the freed room (in 7 days, 10:00)",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Status code is 201', function () {",
+											"    pm.response.to.have.status(201);",
+											"});",
+											"pm.test('Reservation saved for this space and date', function () {",
+											"    const json = pm.response.json();",
+											"    const sent = JSON.parse(pm.variables.replaceIn(pm.request.body.raw)).reserveDate;",
+											"    pm.expect(json.success).to.equal(true);",
+											"    pm.expect(json.data.coworkingSpace).to.equal(pm.collectionVariables.get('smallSpaceId'));",
+											"    ",
+											"    pm.expect(new Date(json.data.reserveDate).getTime()).to.equal(new Date(sent).getTime());",
+											"    pm.collectionVariables.set('resBSmall', json.data._id);",
+											"});"
+										]
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{userBToken}}",
+											"type": "string"
+										}
+									]
+								},
+								"url": {
+									"raw": "{{baseUrl}}/coworkingspaces/{{smallSpaceId}}/reservations",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"coworkingspaces",
+										"{{smallSpaceId}}",
+										"reservations"
+									]
+								},
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"reserveDate\": \"{{day7}}T10:00:00+07:00\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Availability after booking: 0 rooms left",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Status code is 200', function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"pm.test('reservedRooms is 1 and availableRooms is 0 in 7 days', function () {",
+											"    const space = pm.response.json().data;",
+											"    pm.expect(space.totalRooms).to.equal(1);",
+											"    pm.expect(space.reservedRooms).to.equal(1);",
+											"    pm.expect(space.availableRooms).to.equal(0);",
+											"});"
+										]
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [],
+								"auth": {
+									"type": "noauth"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/coworkingspaces/{{smallSpaceId}}?date={{day7}}",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"coworkingspaces",
+										"{{smallSpaceId}}"
+									],
+									"query": [
+										{
+											"key": "date",
+											"value": "{{day7}}"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Next booking that day (admin) → 400",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Status code is 400', function () {",
+											"    pm.response.to.have.status(400);",
+											"});",
+											"pm.test('Rejected: no room free that day (applies to admins too)', function () {",
+											"    const json = pm.response.json();",
+											"    pm.expect(json.success).to.equal(false);",
+											"    pm.expect(json.message).to.match(/No rooms available/);",
+											"});"
+										]
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{adminToken}}",
+											"type": "string"
+										}
+									]
+								},
+								"url": {
+									"raw": "{{baseUrl}}/coworkingspaces/{{smallSpaceId}}/reservations",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"coworkingspaces",
+										"{{smallSpaceId}}",
+										"reservations"
+									]
+								},
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"reserveDate\": \"{{day7}}T15:00:00+07:00\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Stats",
+					"description": "Additional requirement 1: reservation statistics for the admin.",
+					"item": [
+						{
+							"name": "Admin gets stats for the next 30 days",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Status code is 200', function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"//Not named \"data\": that is a reserved global in the Postman sandbox",
+											"const stats = pm.response.json().data;",
+											"pm.test('Has the main statistics keys', function () {",
+											"    pm.expect(stats).to.include.all.keys('range', 'totalReservations', 'mostBookedSpaces', 'peakHour', 'peakDay', 'byHour', 'byDayOfWeek', 'utilisation', 'reservationsPer');",
+											"});",
+											"pm.test('Counts this run\\'s bookings; 24 hours and 7 days in the distributions', function () {",
+											"    pm.expect(stats.totalReservations).to.be.at.least(2);",
+											"    pm.expect(stats.byHour).to.have.lengthOf(24);",
+											"    pm.expect(stats.byDayOfWeek).to.have.lengthOf(7);",
+											"    pm.expect(stats.reservationsPer.groupBy).to.equal('day');",
+											"});"
+										]
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [],
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{adminToken}}",
+											"type": "string"
+										}
+									]
+								},
+								"url": {
+									"raw": "{{baseUrl}}/stats/reservations?from={{today}}&to={{day30}}",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"stats",
+										"reservations"
+									],
+									"query": [
+										{
+											"key": "from",
+											"value": "{{today}}"
+										},
+										{
+											"key": "to",
+											"value": "{{day30}}"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Admin gets stats grouped by month",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Status code is 200', function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"pm.test('reservationsPer is grouped by month (YYYY-MM)', function () {",
+											"    const per = pm.response.json().data.reservationsPer;",
+											"    pm.expect(per.groupBy).to.equal('month');",
+											"    per.data.forEach(function (p) { pm.expect(p.period).to.match(/^\\d{4}-\\d{2}$/); });",
+											"});"
+										]
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [],
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{adminToken}}",
+											"type": "string"
+										}
+									]
+								},
+								"url": {
+									"raw": "{{baseUrl}}/stats/reservations?from={{today}}&to={{day30}}&groupBy=month",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"stats",
+										"reservations"
+									],
+									"query": [
+										{
+											"key": "from",
+											"value": "{{today}}"
+										},
+										{
+											"key": "to",
+											"value": "{{day30}}"
+										},
+										{
+											"key": "groupBy",
+											"value": "month"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "User gets stats → 403",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Status code is 403', function () {",
+											"    pm.response.to.have.status(403);",
+											"});",
+											"pm.test('Only admins may see statistics', function () {",
+											"    const json = pm.response.json();",
+											"    pm.expect(json.success).to.equal(false);",
+											"    pm.expect(json.message).to.match(/not authorized/);",
+											"});"
+										]
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [],
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{userBToken}}",
+											"type": "string"
+										}
+									]
+								},
+								"url": {
+									"raw": "{{baseUrl}}/stats/reservations",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"stats",
+										"reservations"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Stats with groupBy=week → 400",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Status code is 400', function () {",
+											"    pm.response.to.have.status(400);",
+											"});",
+											"pm.test('Explains the allowed groupBy values', function () {",
+											"    const json = pm.response.json();",
+											"    pm.expect(json.success).to.equal(false);",
+											"    pm.expect(json.message).to.match(/groupBy must be either day or month/);",
+											"});"
+										]
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [],
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{adminToken}}",
+											"type": "string"
+										}
+									]
+								},
+								"url": {
+									"raw": "{{baseUrl}}/stats/reservations?groupBy=week",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"stats",
+										"reservations"
+									],
+									"query": [
+										{
+											"key": "groupBy",
+											"value": "week"
+										}
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Password reset",
+					"description": "Additional requirements 2–3: forgot / reset password. The reset token is sent by email (or printed in the server console when SMTP_HOST is empty), so the happy path is the manual request at the end of the collection.",
+					"item": [
+						{
+							"name": "Forgot password for a registered email → 200",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Status code is 200', function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"pm.test('Generic success message', function () {",
+											"    const json = pm.response.json();",
+											"    pm.expect(json.success).to.equal(true);",
+											"    pm.expect(json.message).to.be.a('string').and.not.be.empty;",
+											"    pm.collectionVariables.set('forgotMessage', json.message);",
+											"});"
+										]
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"auth": {
+									"type": "noauth"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/auth/forgotpassword",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"auth",
+										"forgotpassword"
+									]
+								},
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"email\": \"{{userAEmail}}\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Forgot password for an unknown email → also 200",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Status code is 200', function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"pm.test('Same message as for a registered email (no account enumeration)', function () {",
+											"    const json = pm.response.json();",
+											"    pm.expect(json.success).to.equal(true);",
+											"    pm.expect(json.message).to.equal(pm.collectionVariables.get('forgotMessage'));",
+											"});"
+										]
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"auth": {
+									"type": "noauth"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/auth/forgotpassword",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"auth",
+										"forgotpassword"
+									]
+								},
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"email\": \"nobody.{{$timestamp}}@example.com\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Reset password with an invalid token → 400",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Status code is 400', function () {",
+											"    pm.response.to.have.status(400);",
+											"});",
+											"pm.test('Token is rejected', function () {",
+											"    const json = pm.response.json();",
+											"    pm.expect(json.success).to.equal(false);",
+											"    pm.expect(json.message).to.match(/Invalid or expired reset token/);",
+											"});"
+										]
+									}
+								}
+							],
+							"request": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"auth": {
+									"type": "noauth"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/auth/resetpassword/this-is-not-a-valid-token",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"auth",
+										"resetpassword",
+										"this-is-not-a-valid-token"
+									]
+								},
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"password\": \"newpass123\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								}
+							},
+							"response": []
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Cleanup",
+			"description": "The admin deletes the spaces this run created; their bookings are deleted with them (cascade). The run stops after this folder.",
+			"item": [
+				{
+					"name": "Test space still has bookings before delete",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status code is 200', function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test(\"The bookings of user A and user B are still there\", function () {",
 									"    const ids = pm.response.json().data.map(function (r) { return r._id; });",
-									"    pm.expect(ids).to.include(pm.collectionVariables.get('resA1'));",
+									"    pm.expect(ids).to.include.members([pm.collectionVariables.get('resA1'), pm.collectionVariables.get('resB1')]);",
 									"});"
 								]
 							}
@@ -3294,7 +3633,7 @@
 					"response": []
 				},
 				{
-					"name": "Test space has no reservations left (cascade)",
+					"name": "Test space has no bookings left (cascade)",
 					"event": [
 						{
 							"listen": "test",
@@ -3304,7 +3643,7 @@
 									"pm.test('Status code is 200', function () {",
 									"    pm.response.to.have.status(200);",
 									"});",
-									"pm.test('No reservations for the deleted space', function () {",
+									"pm.test('No bookings for the deleted space', function () {",
 									"    pm.expect(pm.response.json().count).to.equal(0);",
 									"});"
 								]
@@ -3339,7 +3678,7 @@
 					"response": []
 				},
 				{
-					"name": "1-room space has no reservations left (cascade)",
+					"name": "1-room space has no bookings left (cascade)",
 					"event": [
 						{
 							"listen": "test",
@@ -3349,7 +3688,7 @@
 									"pm.test('Status code is 200', function () {",
 									"    pm.response.to.have.status(200);",
 									"});",
-									"pm.test('No reservations for the deleted space', function () {",
+									"pm.test('No bookings for the deleted space', function () {",
 									"    pm.expect(pm.response.json().count).to.equal(0);",
 									"});"
 								]
@@ -3384,7 +3723,7 @@
 					"response": []
 				},
 				{
-					"name": "User A's reservation was deleted with the space → 404",
+					"name": "User A's booking was deleted with the space → 404",
 					"event": [
 						{
 							"listen": "test",
@@ -3394,7 +3733,7 @@
 									"pm.test('Status code is 404', function () {",
 									"    pm.response.to.have.status(404);",
 									"});",
-									"pm.test('Reservation not found', function () {",
+									"pm.test('Booking not found', function () {",
 									"    const json = pm.response.json();",
 									"    pm.expect(json.success).to.equal(false);",
 									"    pm.expect(json.message).to.match(/No reservation/);",
@@ -3582,6 +3921,11 @@
 			"type": "string"
 		},
 		{
+			"key": "resSetupSmall",
+			"value": "",
+			"type": "string"
+		},
+		{
 			"key": "resA1",
 			"value": "",
 			"type": "string"
@@ -3593,6 +3937,11 @@
 		},
 		{
 			"key": "resA3",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "resB1",
 			"value": "",
 			"type": "string"
 		},

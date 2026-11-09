@@ -41,8 +41,9 @@ so they change as soon as a reservation is created, edited or deleted.
 ## Postman / Newman tests
 
 The demo collection is in `postman/` (`coworking-space-api.postman_collection.json` + `local.postman_environment.json`).
-Folders follow the presentation order (register → login → spaces → reservations → confidentiality → admin →
-booking rules → extras → cleanup); every response is also checked to arrive within 3000 ms.
+Folders follow the course's official presentation order: `0 · Setup` (the admin silently creates the spaces the
+run needs), `Step 1 · Register` … `Step 12 · Admin deletes any booking`, `Step 15 · Extra credits` (nearby &
+availability, stats, password reset) and `Cleanup`. Every response is also checked to arrive within 3000 ms.
 
 ```bash
 npm run seed       # once: creates admin@seed.test / 123456
@@ -54,5 +55,5 @@ The collection runs green again without reseeding: it registers new users, creat
 computes reservation dates relative to now, and deletes its spaces at the end. In the Postman app, import both
 files, select the "Co-working Space API – local" environment and run the collection with the Runner.
 
-A run sends about 60 requests, and the API allows 100 requests per IP per 10 minutes. For the demo we set
+A run sends about 65 requests, and the API allows 100 requests per IP per 10 minutes. For the demo we set
 `RATE_LIMIT_MAX=500` in `config/config.env` so the collection can be run several times in a row (default stays 100).
