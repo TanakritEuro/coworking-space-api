@@ -16,6 +16,7 @@ participant "<<router>>\n:coworkingSpaces" as spaceRouter
 participant "<<router>>\n:reservations" as router
 participant "<<middleware>>\n:auth" as auth
 participant "<<controllers>>\n:reservations" as ctrl
+participant "<<utils>>\n:availability" as utils
 participant "<<model>>\n:CoworkingSpace" as spaceModel
 participant "<<model>>\n:Reservation" as model
 database "<<MongoDB>>\n:coworkingspaces" as spaceDb
@@ -24,30 +25,56 @@ database "<<MongoDB>>\n:reservations" as db
 [-> server ++ : req.post('/coworkingspaces/:coworkingSpaceId/reservations')\n{reserveDate}
 server -> spaceRouter ++ : app.use('/api/v1/coworkingspaces', coworkingSpaces)
 spaceRouter -> router ++ : router.use('/:coworkingSpaceId/reservations', reservationRouter)
+note over router : each check that fails\nreturns its error immediately
+== Check 1: logged in with the right role ==
 router -> auth ++ : protect, authorize('admin','user')
+opt no or invalid token / role not allowed
+  auth -->[ : 401 / 403 {message: 'Not authorize to access this route'}
+end
 auth --> router -- : next() with req.user
 router -> ctrl ++ : addReservation
+
+== Check 2: the space exists ==
 ctrl -> spaceModel ++ : findById(coworkingSpaceId)
 spaceModel -> spaceDb ++ : CoworkingSpaceSchema
 spaceDb --> spaceModel -- : coworkingSpace
 spaceModel --> ctrl -- : coworkingSpace
-alt co-working space not found
+opt co-working space not found
   ctrl -->[ : 404 {message: 'No co-working space with the id of ...'}
-else found
-  ctrl -> model ++ : find({user: req.user.id})
-  model -> db ++ : ReservationSchema
-  db --> model -- : existedReservations
-  model --> ctrl -- : existedReservations
-  alt existedReservations.length >= 3 and role != admin
-    ctrl -->[ : 400 {message: 'has already made 3 reservations'}
-  else
-    ctrl -> model ++ : create({reserveDate, user, coworkingSpace})
-    model -> db ++ : ReservationSchema
-    db --> model -- : reservation
-    model --> ctrl -- : reservation
-    ctrl -->[ : 201 {success: true, data: reservation}
-  end
 end
+
+== Check 3: under 3 bookings (users only) ==
+ctrl -> model ++ : find({user: req.user.id})
+model -> db ++ : ReservationSchema
+db --> model -- : existedReservations
+model --> ctrl -- : existedReservations
+opt existedReservations.length >= 3 and role != admin
+  ctrl -->[ : 400 {message: 'has already made 3 reservations'}
+end
+
+== Check 4: future date, inside opening hours (Thai time) ==
+ctrl -> ctrl : parseReserveDate(reserveDate)\npastDateMessage(reserveDate)\noutsideHoursMessage(coworkingSpace, reserveDate)
+opt date invalid, not in the future, or outside openTime-closeTime
+  ctrl -->[ : 400 {message: 'Reservation date must be in the future'\nor '... is open 09:00-18:00 (Thai time): 20:00 is outside opening hours'}
+end
+
+== Check 5: a room is free that day ==
+ctrl -> utils ++ : roomsLeft(coworkingSpace, thaiDayOf(reserveDate))
+utils -> model ++ : aggregate([$match {coworkingSpace, reserveDate in that day},\n$group count])
+model -> db ++ : ReservationSchema
+db --> model -- : reservedRooms
+model --> utils -- : reservedRooms
+utils --> ctrl -- : totalRooms - reservedRooms
+opt no room left that day
+  ctrl -->[ : 400 {message: 'No rooms available at ... on ...: all N rooms are already reserved'}
+end
+
+== All checks passed ==
+ctrl -> model ++ : create({reserveDate, user, coworkingSpace})
+model -> db ++ : ReservationSchema
+db --> model -- : reservation
+model --> ctrl -- : reservation
+ctrl -->[ : 201 {success: true, data: reservation}
 deactivate ctrl
 deactivate router
 deactivate spaceRouter
