@@ -3833,6 +3833,1111 @@
 					"response": []
 				}
 			]
+		},
+		{
+			"name": "Video – extra credits 4–6 (manual)",
+			"description": "Requests for recording the extra-credit clips, in script order. Not part of the run (the run stops after Cleanup).\n\nBefore recording: npm run seed, restart the server. Uses the seeded data: KX Knowledge Exchange is fully booked on 2026-11-25. Send '0 · Prepare' first, then one clip folder at a time. Run npm run seed again before re-recording clip 6.",
+			"item": [
+				{
+					"name": "0 · Prepare (send first)",
+					"item": [
+						{
+							"name": "Admin logs in",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Status code is 200', function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"pm.test('Admin token saved', function () {",
+											"    const json = pm.response.json();",
+											"    pm.collectionVariables.set('adminToken', json.token);",
+											"    pm.expect(json.token).to.be.a('string');",
+											"});"
+										]
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"auth": {
+									"type": "noauth"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/auth/login",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"auth",
+										"login"
+									]
+								},
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"email\": \"admin@seed.test\",\n    \"password\": \"123456\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Find KX Knowledge Exchange (saves vidKxId)",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Status code is 200', function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"pm.test('KX found', function () {",
+											"    const kx = pm.response.json().data.find(s => s.name === 'KX Knowledge Exchange');",
+											"    pm.expect(kx, 'run npm run seed first').to.be.an('object');",
+											"    pm.collectionVariables.set('vidKxId', kx._id || kx.id);",
+											"});"
+										]
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [],
+								"auth": {
+									"type": "noauth"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/coworkingspaces?select=name,totalRooms&limit=100",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"coworkingspaces"
+									],
+									"query": [
+										{
+											"key": "select",
+											"value": "name,totalRooms"
+										},
+										{
+											"key": "limit",
+											"value": "100"
+										}
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Clip 4 · Nearby search",
+					"item": [
+						{
+							"name": "4.1 Nearby from Chula Engineering (default 5 km)",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Status code is 200', function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"pm.test('Sorted nearest first', function () {",
+											"    const km = pm.response.json().data.map(s => s.distanceKm);",
+											"    pm.expect(km).to.eql([...km].sort((a, b) => a - b));",
+											"});"
+										]
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [],
+								"auth": {
+									"type": "noauth"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/coworkingspaces/nearby?lat=13.7367&lng=100.5331",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"coworkingspaces",
+										"nearby"
+									],
+									"query": [
+										{
+											"key": "lat",
+											"value": "13.7367"
+										},
+										{
+											"key": "lng",
+											"value": "100.5331"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "4.2 Nearby, radius 10 km",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Status code is 200', function () {",
+											"    pm.response.to.have.status(200);",
+											"});"
+										]
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [],
+								"auth": {
+									"type": "noauth"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/coworkingspaces/nearby?lat=13.7367&lng=100.5331&radius=10",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"coworkingspaces",
+										"nearby"
+									],
+									"query": [
+										{
+											"key": "lat",
+											"value": "13.7367"
+										},
+										{
+											"key": "lng",
+											"value": "100.5331"
+										},
+										{
+											"key": "radius",
+											"value": "10"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "4.3 Nearby, radius 1 km",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Status code is 200', function () {",
+											"    pm.response.to.have.status(200);",
+											"});"
+										]
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [],
+								"auth": {
+									"type": "noauth"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/coworkingspaces/nearby?lat=13.7367&lng=100.5331&radius=1",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"coworkingspaces",
+										"nearby"
+									],
+									"query": [
+										{
+											"key": "lat",
+											"value": "13.7367"
+										},
+										{
+											"key": "lng",
+											"value": "100.5331"
+										},
+										{
+											"key": "radius",
+											"value": "1"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "4.4 Nearby from the Pacific → empty",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Status code is 200', function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"pm.test('No spaces', function () {",
+											"    pm.expect(pm.response.json().count).to.equal(0);",
+											"});"
+										]
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [],
+								"auth": {
+									"type": "noauth"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/coworkingspaces/nearby?lat=0&lng=-160&radius=5",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"coworkingspaces",
+										"nearby"
+									],
+									"query": [
+										{
+											"key": "lat",
+											"value": "0"
+										},
+										{
+											"key": "lng",
+											"value": "-160"
+										},
+										{
+											"key": "radius",
+											"value": "5"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "4.5 Nearby without lat → 400",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Status code is 400', function () {",
+											"    pm.response.to.have.status(400);",
+											"});"
+										]
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [],
+								"auth": {
+									"type": "noauth"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/coworkingspaces/nearby?lng=100.5331",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"coworkingspaces",
+										"nearby"
+									],
+									"query": [
+										{
+											"key": "lng",
+											"value": "100.5331"
+										}
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Clip 5 · Total rooms and free rooms per date",
+					"item": [
+						{
+							"name": "5.1 Admin sets totalRooms 0 → 400",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Status code is 400', function () {",
+											"    pm.response.to.have.status(400);",
+											"});"
+										]
+									}
+								}
+							],
+							"request": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{adminToken}}",
+											"type": "string"
+										}
+									]
+								},
+								"url": {
+									"raw": "{{baseUrl}}/coworkingspaces/{{vidKxId}}",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"coworkingspaces",
+										"{{vidKxId}}"
+									]
+								},
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"totalRooms\": 0\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "5.2 Admin sets totalRooms 2.5 → 400",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Status code is 400', function () {",
+											"    pm.response.to.have.status(400);",
+											"});"
+										]
+									}
+								}
+							],
+							"request": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{adminToken}}",
+											"type": "string"
+										}
+									]
+								},
+								"url": {
+									"raw": "{{baseUrl}}/coworkingspaces/{{vidKxId}}",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"coworkingspaces",
+										"{{vidKxId}}"
+									]
+								},
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"totalRooms\": 2.5\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "5.3 Free rooms of every space on 2026-11-25",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Status code is 200', function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"pm.test('Each space has reservedRooms and availableRooms', function () {",
+											"    pm.response.json().data.forEach(s => pm.expect(s).to.include.keys('reservedRooms', 'availableRooms'));",
+											"});"
+										]
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [],
+								"auth": {
+									"type": "noauth"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/coworkingspaces?date=2026-11-25&select=name,totalRooms&limit=100",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"coworkingspaces"
+									],
+									"query": [
+										{
+											"key": "date",
+											"value": "2026-11-25"
+										},
+										{
+											"key": "select",
+											"value": "name,totalRooms"
+										},
+										{
+											"key": "limit",
+											"value": "100"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "5.4 KX free rooms on 2026-11-26",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Status code is 200', function () {",
+											"    pm.response.to.have.status(200);",
+											"});"
+										]
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [],
+								"auth": {
+									"type": "noauth"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/coworkingspaces/{{vidKxId}}?date=2026-11-26",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"coworkingspaces",
+										"{{vidKxId}}"
+									],
+									"query": [
+										{
+											"key": "date",
+											"value": "2026-11-26"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "5.5 Invalid date 2026-02-30 → 400",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Status code is 400', function () {",
+											"    pm.response.to.have.status(400);",
+											"});"
+										]
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [],
+								"auth": {
+									"type": "noauth"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/coworkingspaces?date=2026-02-30",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"coworkingspaces"
+									],
+									"query": [
+										{
+											"key": "date",
+											"value": "2026-02-30"
+										}
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Clip 6 · Reject when full",
+					"item": [
+						{
+							"name": "6.1 KX on 2026-11-25: 0 rooms free",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Status code is 200', function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"pm.test('0 room(s) available on 2026-11-25', function () {",
+											"    const json = pm.response.json();",
+											"    pm.expect(json.data.availableRooms).to.equal(0);",
+											"});"
+										]
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [],
+								"auth": {
+									"type": "noauth"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/coworkingspaces/{{vidKxId}}?date=2026-11-25",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"coworkingspaces",
+										"{{vidKxId}}"
+									],
+									"query": [
+										{
+											"key": "date",
+											"value": "2026-11-25"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "6.2 Register a demo user (saves vidUserToken)",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Status code is 201', function () {",
+											"    pm.response.to.have.status(201);",
+											"});",
+											"pm.test('User token saved', function () {",
+											"    pm.collectionVariables.set('vidUserToken', pm.response.json().token);",
+											"});"
+										]
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"auth": {
+									"type": "noauth"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/auth/register",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"auth",
+										"register"
+									]
+								},
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Video Demo\",\n    \"tel\": \"0812345678\",\n    \"email\": \"video.{{$timestamp}}@demo.test\",\n    \"password\": \"123456\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "6.3 User books KX on 2026-11-25 13:00 → 400 (full)",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Status code is 400', function () {",
+											"    pm.response.to.have.status(400);",
+											"});",
+											"pm.test('No rooms available', function () {",
+											"    pm.expect(pm.response.json().message).to.match(/No rooms available/);",
+											"});"
+										]
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{vidUserToken}}",
+											"type": "string"
+										}
+									]
+								},
+								"url": {
+									"raw": "{{baseUrl}}/coworkingspaces/{{vidKxId}}/reservations",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"coworkingspaces",
+										"{{vidKxId}}",
+										"reservations"
+									]
+								},
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"reserveDate\": \"2026-11-25T13:00:00+07:00\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "6.4 User books KX on 2026-11-26 10:00 → 201 (saves vidRes26Id)",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Status code is 201', function () {",
+											"    pm.response.to.have.status(201);",
+											"});",
+											"pm.test('Booking saved', function () {",
+											"    pm.collectionVariables.set('vidRes26Id', pm.response.json().data._id);",
+											"});"
+										]
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{vidUserToken}}",
+											"type": "string"
+										}
+									]
+								},
+								"url": {
+									"raw": "{{baseUrl}}/coworkingspaces/{{vidKxId}}/reservations",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"coworkingspaces",
+										"{{vidKxId}}",
+										"reservations"
+									]
+								},
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"reserveDate\": \"2026-11-26T10:00:00+07:00\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "6.5 Admin finds a KX booking on 2026-11-25 (saves vidResToDelete)",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Status code is 200', function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"pm.test('Found a booking on 2026-11-25', function () {",
+											"    const start = new Date('2026-11-25T00:00:00+07:00'), end = new Date('2026-11-26T00:00:00+07:00');",
+											"    const r = pm.response.json().data.find(x => new Date(x.reserveDate) >= start && new Date(x.reserveDate) < end);",
+											"    pm.expect(r).to.be.an('object');",
+											"    pm.collectionVariables.set('vidResToDelete', r._id);",
+											"});"
+										]
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [],
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{adminToken}}",
+											"type": "string"
+										}
+									]
+								},
+								"url": {
+									"raw": "{{baseUrl}}/coworkingspaces/{{vidKxId}}/reservations",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"coworkingspaces",
+										"{{vidKxId}}",
+										"reservations"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "6.6 Admin deletes that booking",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Status code is 200', function () {",
+											"    pm.response.to.have.status(200);",
+											"});"
+										]
+									}
+								}
+							],
+							"request": {
+								"method": "DELETE",
+								"header": [],
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{adminToken}}",
+											"type": "string"
+										}
+									]
+								},
+								"url": {
+									"raw": "{{baseUrl}}/reservations/{{vidResToDelete}}",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"reservations",
+										"{{vidResToDelete}}"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "6.7 KX on 2026-11-25: 1 room free",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Status code is 200', function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"pm.test('1 room(s) available on 2026-11-25', function () {",
+											"    const json = pm.response.json();",
+											"    pm.expect(json.data.availableRooms).to.equal(1);",
+											"});"
+										]
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [],
+								"auth": {
+									"type": "noauth"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/coworkingspaces/{{vidKxId}}?date=2026-11-25",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"coworkingspaces",
+										"{{vidKxId}}"
+									],
+									"query": [
+										{
+											"key": "date",
+											"value": "2026-11-25"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "6.8 User books KX on 2026-11-25 13:00 → 201",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Status code is 201', function () {",
+											"    pm.response.to.have.status(201);",
+											"});"
+										]
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{vidUserToken}}",
+											"type": "string"
+										}
+									]
+								},
+								"url": {
+									"raw": "{{baseUrl}}/coworkingspaces/{{vidKxId}}/reservations",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"coworkingspaces",
+										"{{vidKxId}}",
+										"reservations"
+									]
+								},
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"reserveDate\": \"2026-11-25T13:00:00+07:00\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "6.9 KX on 2026-11-25: 0 rooms free again",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Status code is 200', function () {",
+											"    pm.response.to.have.status(200);",
+											"});",
+											"pm.test('0 room(s) available on 2026-11-25', function () {",
+											"    const json = pm.response.json();",
+											"    pm.expect(json.data.availableRooms).to.equal(0);",
+											"});"
+										]
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [],
+								"auth": {
+									"type": "noauth"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/coworkingspaces/{{vidKxId}}?date=2026-11-25",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"coworkingspaces",
+										"{{vidKxId}}"
+									],
+									"query": [
+										{
+											"key": "date",
+											"value": "2026-11-25"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "6.10 User moves the 2026-11-26 booking into 2026-11-25 15:00 → 400",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"type": "text/javascript",
+										"exec": [
+											"pm.test('Status code is 400', function () {",
+											"    pm.response.to.have.status(400);",
+											"});",
+											"pm.test('No rooms available', function () {",
+											"    pm.expect(pm.response.json().message).to.match(/No rooms available/);",
+											"});"
+										]
+									}
+								}
+							],
+							"request": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{vidUserToken}}",
+											"type": "string"
+										}
+									]
+								},
+								"url": {
+									"raw": "{{baseUrl}}/reservations/{{vidRes26Id}}",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"reservations",
+										"{{vidRes26Id}}"
+									]
+								},
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"reserveDate\": \"2026-11-25T15:00:00+07:00\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								}
+							},
+							"response": []
+						}
+					]
+				}
+			]
 		}
 	],
 	"event": [
@@ -3957,6 +5062,26 @@
 		},
 		{
 			"key": "resetToken",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "vidKxId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "vidUserToken",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "vidRes26Id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "vidResToDelete",
 			"value": "",
 			"type": "string"
 		}
